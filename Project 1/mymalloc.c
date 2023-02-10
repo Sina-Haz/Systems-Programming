@@ -3,62 +3,111 @@
 #include <string.h>
 #include "mymalloc.h"
 
-
 #define HEAP_SIZE 4096
 static char heap[HEAP_SIZE];
-char *ind = heap;
-
-
+char *headofmem = &heap[0];
+int first = 0;
+// will always be the beginning of memory
 
 void *mymalloc(size_t size, char *file, int line);
 void myfree(void *ptr, char *file, int line);
 
+typedef struct chunk
+{
+    struct chunk *next;
+    struct chunk *prev;
+    int size;              // size of chunk
+    unsigned char *buffer; // head of memory for the chunk
+
+    // now, the question is, how do we store this in the array?
+} chunk;
+
+chunk *linkedList;
+void printlist(chunk *ptr);
+
+void initMyMalloc()
+{
+    linkedList = (struct chunk *)heap; // cast heap to a struct pointer
+    linkedList->next = NULL;
+    linkedList->prev = NULL;
+    linkedList->size = sizeof(heap) - sizeof(struct chunk); // this creates an empty chunk of size 4080 (4096-16(size of-
+    // a chunk struct))
+    linkedList->buffer = (unsigned char *)(heap + sizeof(struct chunk));
+
+    // this initalizes a global chunk node that we will need in order to be able to insert into the heap
+    //  everything in here is correct because I had a TA help me set it up, so we need to use this to add
+    //  to the heap by creating new node "chunks"
+}
+
+void printlist(chunk *ptr)
+{
+    int i = 0;
+    while (ptr != NULL)
+    {
+        printf("Chunk: %d\n", i);
+        printf("Size: %d\n", ptr->size);
+        printf("Current Buffer: %d\n", ptr->buffer);
+        ptr = ptr->next;
+        i++;
+    }
+}
+
+// here's why I got my inspiration: https://sites.cs.ucsb.edu/~rich/class/cs170/labs/lab1.malloc/what_i_did.html
+
 int main()
 {
-    printf("%d\n", ind);
-    ind += 8;
-
-    memset(heap, 0, 4096); // test line
+    initMyMalloc(); // this gives our global variable some basic attributes that will be overwritten on the first call to malloc
     int *x = malloc(sizeof(int));
-    double *y = malloc(sizeof(double));
-    int *k = malloc(sizeof(int));
+    int *y = malloc(sizeof(int));
 
-    for (int i = 0; i < 50; i++)
-    {
-        printf("%d, ", heap[i]);
-    }
+    printlist(linkedList);
 
-    // so far, all the addresses space out appropriately, but I don't know how to access the char content, given a pointer
+    // thinks linkedlist->next is NULL
 
     return EXIT_SUCCESS;
 }
 
-// to use memset, we need a pointer to a spot in memory, what we want to replace, then how many spots to replace
 void *mymalloc(size_t size, char *file, int line)
 {
-    char *header = ind;
-    // size bit:
-    memset(ind - 8, size, 4);
-    // valid bit:
-    memset(ind - 4, 1, 4);
+    // we have linked list as the head
+    // the goal here is to insert a new chunk object with only a global pointer and a size
+    // if you fix this I'll kiss you on the mouth
+    chunk *new_chunk = (struct chunk *)heap;
 
-    memset(ind, 'x', size);
-    ind += (size + 8);
+    if (first == 0)
+    {
+        first++;
+        new_chunk->size = (size + sizeof(chunk));
+        new_chunk->next = NULL;
+        new_chunk->prev = NULL;
+        new_chunk->buffer = (linkedList->buffer + size);
+        linkedList = new_chunk;
+        return new_chunk->buffer;
+    }
+    else
+    {
+        // never runs, but the line above runs only once... literally not possible
+        chunk *ptr = linkedList;
+        printf("\n");
 
-    return header;
+        while (ptr->next != NULL && first != 1)
+        {
+            ptr = ptr->next;
+            // runs this line once and then crashes.
+        }
+        new_chunk->prev = ptr;
+        new_chunk->size = (size + sizeof(chunk));
+        new_chunk->next = NULL;
+        new_chunk->buffer = (ptr->buffer + ptr->size + sizeof(chunk));
+        ptr->next = new_chunk;
+        // this is saying that ptr->next = 0
 
-    // we need to return a pointer to the head of this data
+        // fix the insertion and you might have a good program new_chunk = ptr;
+    }
+
+    return new_chunk->buffer;
 }
+
 void myfree(void *ptr, char *file, int line)
 {
-    int size = 0;
-    memset(ptr - 8, 0, 8);
-
-    // so this clears the known metadata, but it does not clear everything after
 }
-
-// QUESTIONS:
-// 1. ask about the "size", "file", and "line" inputs, make sure they're really necessary since usually
-// malloc only takes in one argument
-// 2. How can we keep track of where we are in the char array
-
