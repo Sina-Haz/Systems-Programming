@@ -12,7 +12,7 @@ typedef struct header{
 
 #define HEADER_SIZE sizeof(header)
 #define HEAP_SIZE 4096
-static char heap[HEAP_SIZE] = {-1};
+static char heap[HEAP_SIZE] = {0};
 
 void *mymalloc(size_t size, char *file, int line);
 void myfree(void *ptr, char *file, int line);
@@ -34,8 +34,7 @@ void initializeMemory(){
     case 4: we've reached the end of heap, return NULL
 */
 void *mymalloc(size_t size, char *file, int line){
-    int* num = (int*) heap;
-    if(*num == -1){
+    if(*heap == (char)0){
         initializeMemory();
     }
 
@@ -48,9 +47,10 @@ void *mymalloc(size_t size, char *file, int line){
             if(size <= h->payload_size){
                 //if size is such that we can split up this chunk into 2 chunks, need to make a new header
                 if(size < (h->payload_size - HEADER_SIZE)){
-                    header *new = (header*)heap + index + HEADER_SIZE + size;
+                    header *new = h + HEADER_SIZE + size;
                     new->isValid = 0;
                     new->payload_size = h->payload_size - size - HEADER_SIZE;
+                    new->ptr = new + HEADER_SIZE;
                     h->payload_size = size;
                 }
                 //if the size is too large to split up this chunk
@@ -59,7 +59,7 @@ void *mymalloc(size_t size, char *file, int line){
             }
         }
         //if h is free but not large enough, or if its not free, go to next chunk, add to index.
-        index+=HEADER_SIZE + h->payload_size;
+        index+= HEADER_SIZE + h->payload_size;
 
     } while(index < HEAP_SIZE);
     printf("There was not enough memory to allocate for your object.");
@@ -80,7 +80,7 @@ void myfree(void *ptr, char *file, int line){
                 isPtrMalloced++;
             }
             else{
-                printf("Given pointer was already freed.");
+                printf("Given pointer was already freed.\n");
                 return;
             }
             break;
@@ -88,7 +88,7 @@ void myfree(void *ptr, char *file, int line){
         index+=HEADER_SIZE+h->payload_size;
     }while(index < HEAP_SIZE);
     if(isPtrMalloced == 0){
-        printf("Given pointer was not allocated with malloc.");
+        printf("Given pointer was not allocated with malloc.\n");
         return;
     }
     //now we free the memory. If chunk ahead is also free we coalesce them.
@@ -109,7 +109,7 @@ void printMem(){
     int index = 0;
     do{
         header* h = (header*) heap+index;
-        printf("Chunk %d has size %d. Valid value: %d",index,h->payload_size,h->isValid);
+        printf("Chunk at index: %d has size %d. Valid value: %d\n",index,h->payload_size,h->isValid);
         index+=HEADER_SIZE+h->payload_size;
     }while(index < HEAP_SIZE);
 }
@@ -120,7 +120,7 @@ int main(){
 
     char* string = malloc(45*sizeof(char));
 
-    string = "Hello. My name is Sina Hazeghi";
+    string = memcpy(string,"Hello my name is Sina Hazeghi",30);
 
     printMem();
 
