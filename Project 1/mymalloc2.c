@@ -88,16 +88,24 @@ void myfree(void *ptr, char *file, int line){
         index+=HEADER_SIZE+h->payload_size;
     }while(index < HEAP_SIZE);
     if(isPtrMalloced == 0){
-        printf("Given pointer was not allocated with malloc.\n");
+        if(ptr > (void*) heap && ptr <= (void*) (heap+HEAP_SIZE)){
+            printf("given address is not at the start of a chunk of allocated memory\n");
+        }
+        else{
+            printf("Given pointer was not allocated with malloc.\n");
+        }
         return;
     }
+
     //now we free the memory. If chunk ahead is also free we coalesce them.
-    header* h = ptr - HEADER_SIZE;
+    header* h = (header*) heap+index;
     h->isValid = 0;
+    
+
     //before we eager coalesce need to make sure that this isn't the last chunk in the heap.
     //can likely do this with index
     if(index+HEADER_SIZE+h->payload_size < HEAP_SIZE){
-        header* next = ptr + h->payload_size;
+        header* next = (header*) ptr + h->payload_size;
         if(next -> isValid == 0){
             h -> payload_size += HEADER_SIZE + next -> payload_size;
         }
@@ -126,9 +134,13 @@ int main(){
 
     free(string);
 
+    printMem();
+
     int num = 0;
     
     free(&num);
+
+    free(arr+2);
 
     free(arr);
 
