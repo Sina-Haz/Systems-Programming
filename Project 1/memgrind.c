@@ -62,6 +62,7 @@ int main()
     long arrays[RUN_COUNT];
     // first part: allocate and immediately free 120 1-byte chunks. Repeat this fifty times
 
+
     long avg1 = 0;
     struct timeval start,end;
     for (int k = 0; k < RUN_COUNT; k++)
