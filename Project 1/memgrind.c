@@ -14,20 +14,20 @@ void loopyStuff()
     }
 }
 
-void loops2theSequel(char **storage)
+void loops2theSequel(char storage[120][1])
 {
     for (int i = 0; i < 120; i++)
     {
         char *c = malloc(sizeof(char));
-        storage[i] = c;
+        storage[i][0] = (int)c;
     }
 }
 
-void loops3TheFreeing(char **storage)
+void loops3TheFreeing(char storage[120][1])
 {
     for (int i = 0; i < 120; i++)
     {
-        free(storage[i]);
+        free(storage[i][0]);
     }
 }
 
@@ -60,7 +60,7 @@ int main()
     long arrays2[50];
     for (int k = 0; k < 50; k++)
     {
-        char **storage = malloc(sizeof(char *) * 120); // will be used to store the pointers we're freeing
+        char storage[120][1]; // will be used to store the pointers we're freeing
         clock_t start2 = clock();
         loops2theSequel(storage);
         printf("breakpoint 1");
