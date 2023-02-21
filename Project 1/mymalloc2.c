@@ -123,6 +123,8 @@ void printMem(){
 }
 
 
+/*
+
 int main(){
     int* arr = malloc(5*sizeof(int));
 
@@ -147,3 +149,4 @@ int main(){
     return EXIT_SUCCESS;
 
 }
+*/
