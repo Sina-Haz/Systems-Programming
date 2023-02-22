@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include "mymalloc.h"
-#include "mymalloc2.c"
+#include "mymalloc.c"
 
 #define TASK_COUNT 4
 #define RUN_COUNT 50
@@ -58,7 +58,7 @@ void loops3TheFreeing(char storage[120][1])
 int main()
 {
     
-    
+    /*
     long arrays[RUN_COUNT];
     // first part: allocate and immediately free 120 1-byte chunks. Repeat this fifty times
 
@@ -80,6 +80,7 @@ int main()
     }
     avg1 /= RUN_COUNT;
     printf("Time average measured for task 1 is %li microseconds.\n", avg1);
+    */
 
     Task2();
 

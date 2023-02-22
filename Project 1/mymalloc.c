@@ -3,111 +3,168 @@
 #include <string.h>
 #include "mymalloc.h"
 
+// metadata includes: the size of the data, whether its free or not, a ptr to the data.
+#pragma pack(push,1)
+typedef struct header
+{
+    int payload_size;
+    short isValid;
+    void *ptr;
+} header;
+#pragma pack(pop)
+
+#define HEADER_SIZE sizeof(header)
 #define HEAP_SIZE 4096
-static char heap[HEAP_SIZE];
-char *headofmem = &heap[0];
-int first = 0;
-// will always be the beginning of memory
+static char heap[HEAP_SIZE] = {0};
 
 void *mymalloc(size_t size, char *file, int line);
 void myfree(void *ptr, char *file, int line);
 
-typedef struct chunk
+// initializes heap with 1 header and sets the chunk to 0 with memset
+void initializeMemory()
 {
-    struct chunk *next;
-    struct chunk *prev;
-    int size;              // size of chunk
-    unsigned char *buffer; // head of memory for the chunk
-
-    // now, the question is, how do we store this in the array?
-} chunk;
-
-chunk *linkedList;
-void printlist(chunk *ptr);
-
-void initMyMalloc()
-{
-    linkedList = (struct chunk *)heap; // cast heap to a struct pointer
-    linkedList->next = NULL;
-    linkedList->prev = NULL;
-    linkedList->size = sizeof(heap) - sizeof(struct chunk); // this creates an empty chunk of size 4080 (4096-16(size of-
-    // a chunk struct))
-    linkedList->buffer = (unsigned char *)(heap + sizeof(struct chunk));
-
-    // this initalizes a global chunk node that we will need in order to be able to insert into the heap
-    //  everything in here is correct because I had a TA help me set it up, so we need to use this to add
-    //  to the heap by creating new node "chunks"
+    header *h = (header *)heap;
+    h->isValid = 0;
+    h->payload_size = HEAP_SIZE - HEADER_SIZE;
+    h->ptr = heap + HEADER_SIZE;
+    memset(h->ptr, 0, h->payload_size);
 }
 
-void printlist(chunk *ptr)
-{
-    int i = 0;
-    while (ptr != NULL)
-    {
-        printf("Chunk: %d\n", i);
-        printf("Size: %d\n", ptr->size);
-        printf("Current Buffer: %d\n", ptr->buffer);
-        ptr = ptr->next;
-        i++;
-    }
-}
-
-// here's why I got my inspiration: https://sites.cs.ucsb.edu/~rich/class/cs170/labs/lab1.malloc/what_i_did.html
-
-int main()
-{
-    initMyMalloc(); // this gives our global variable some basic attributes that will be overwritten on the first call to malloc
-    int *x = malloc(sizeof(int));
-    int *y = malloc(sizeof(int));
-
-    printlist(linkedList);
-
-    // thinks linkedlist->next is NULL
-
-    return EXIT_SUCCESS;
-}
-
+/*
+    cases:
+    case 1 data is free and chunk is big enough-->break it up into 2 chunks need a new header for new chunk
+    case 2: data is free, chunk too small.(eager coalescing) Go to next chunk look for case 1 scenario.
+    case 3:data not free, go to next chunk
+    case 4: we've reached the end of heap, return NULL
+*/
 void *mymalloc(size_t size, char *file, int line)
 {
-    // we have linked list as the head
-    // the goal here is to insert a new chunk object with only a global pointer and a size
-    // if you fix this I'll kiss you on the mouth
-    chunk *new_chunk = (struct chunk *)heap;
-
-    if (first == 0)
+    if (*heap == (char)0)
     {
-        first++;
-        new_chunk->size = (size + sizeof(chunk));
-        new_chunk->next = NULL;
-        new_chunk->prev = NULL;
-        new_chunk->buffer = (linkedList->buffer + size);
-        linkedList = new_chunk;
-        return new_chunk->buffer;
+        initializeMemory();
     }
-    else
-    {
-        // never runs, but the line above runs only once... literally not possible
-        chunk *ptr = linkedList;
-        printf("\n");
 
-        while (ptr->next != NULL && first != 1)
+    int index = 0;
+    do
+    {
+        header *h = (header *)heap + index;
+
+        if (h->isValid == 0)
         {
-            ptr = ptr->next;
-            // runs this line once and then crashes.
+            if (size <= h->payload_size)
+            {
+                // if size is such that we can split up this chunk into 2 chunks, need to make a new header
+                if (size < (h->payload_size - HEADER_SIZE))
+                {
+                    header *new = (header*) heap + index + HEADER_SIZE + size;
+                    new->isValid = 0;
+                    new->payload_size = h->payload_size - size - HEADER_SIZE;
+                    new->ptr = new + HEADER_SIZE;
+                    h->payload_size = size;
+                }
+                // if the size is too large to split up this chunk
+                h->isValid = 1;
+                return h->ptr;
+            }
         }
-        new_chunk->prev = ptr;
-        new_chunk->size = (size + sizeof(chunk));
-        new_chunk->next = NULL;
-        new_chunk->buffer = (ptr->buffer + ptr->size + sizeof(chunk));
-        ptr->next = new_chunk;
-        // this is saying that ptr->next = 0
+        // if h is free but not large enough, or if its not free, go to next chunk, add to index.
+        index += HEADER_SIZE + h->payload_size;
 
-        // fix the insertion and you might have a good program new_chunk = ptr;
-    }
-
-    return new_chunk->buffer;
+    } while (index < HEAP_SIZE);
+    printf("There was not enough memory to allocate for your object in file %s line %d\n", file, line);
+    return NULL;
 }
 
+// make sure to implement eager coalescing here, so once we free something make sure things adjacent
+//(either behind or in front) that are also free get merged into 1 chunk.
 void myfree(void *ptr, char *file, int line)
 {
+    // first we iterate through the memory to make sure that the pointer was malloced and that its not freed.
+    int index = 0;
+    int isPtrMalloced = 0;
+    do
+    {
+        header *h = (header *)heap + index;
+        if (ptr == h->ptr)
+        {
+            if (h->isValid == 1)
+            {
+                isPtrMalloced++;
+            }
+            else
+            {
+                printf("Given pointer was already freed in file %s line %d\n", file, line);
+                return;
+            }
+            break;
+        }
+        index += HEADER_SIZE + h->payload_size;
+    } while (index < HEAP_SIZE);
+    if (isPtrMalloced == 0)
+    {
+        if (ptr > (void *)heap && ptr <= (void *)(heap + HEAP_SIZE))
+        {
+            printf("given address is not at the start of a chunk of allocated memory in file %s line %d\n", file, line);
+        }
+        else
+        {
+            printf("Given pointer was not allocated with malloc in file %s line %d\n", file, line);
+        }
+        return;
+    }
+
+    // now we free the memory. If chunk ahead is also free we coalesce them.
+    header *h = (header *)heap + index;
+    h->isValid = 0;
+
+    // before we eager coalesce need to make sure that this isn't the last chunk in the heap.
+    // can likely do this with index
+    if (index + HEADER_SIZE + h->payload_size < HEAP_SIZE)
+    {
+        header *next = (header *)heap + index + HEADER_SIZE + h->payload_size;
+        if (next->isValid == 0)
+        {
+            h->payload_size += HEADER_SIZE + next->payload_size;
+        }
+    }
 }
+
+void printMem()
+{
+    int index = 0;
+    do
+    {
+        header *h = (header *)heap + index;
+        printf("Chunk at index: %d has size %d. Valid value: %d\n", index, h->payload_size, h->isValid);
+        index += HEADER_SIZE + h->payload_size;
+    } while (index < HEAP_SIZE);
+}
+
+/*
+
+int main(){
+    int* arr = malloc(5*sizeof(int));
+
+    char *string = malloc(45 * sizeof(char));
+
+    string = memcpy(string, "Hello my name is Sina Hazeghi", 30);
+
+    printMem();
+
+    free(string);
+
+    printMem();
+
+    int num = 0;
+
+    free(&num);
+
+    free(arr + 2);
+
+    free(arr);
+
+    return EXIT_SUCCESS;
+
+}
+
+*/
