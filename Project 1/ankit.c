@@ -56,10 +56,10 @@ void test3()
     struct timeval startTime, endTime;
     gettimeofday(&startTime, NULL);
 
-    int current = 0;
-    int random = 0;
     for (int j = 0; j < 50; j++)
     {
+        int current = 0;
+        int random = 0;
         char *arr[120];
         for (int i = 0; i < 120; i++)
         {
