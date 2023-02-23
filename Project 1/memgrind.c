@@ -40,36 +40,16 @@ void freeTask2(char **arr, int len)
     free(arr);
 }
 
-void printRepArr(int *arr, int len);
 
-void Task3()
-{
-    int mallocCount = 0;
-    int freeCount = 0;
-    int len = 120;
-    char **arr = malloc(sizeof(char *) * len);
-    int *arrRep = malloc(sizeof(int) * len);
-
-    while (mallocCount < 120)
-    {
-        int randomNumber = rand() % (3 - 1) + 1;
-        if (randomNumber == 1)
-        {
-            char *c = malloc(sizeof(char));
-            arr[mallocCount] = c;
-            arrRep[mallocCount] = 1;
-            mallocCount++;
-        }
-        else if (randomNumber == 2 && freeCount < 120)
-        {
-            free(arr[freeCount]);
-            arrRep[freeCount] = 0;
-            freeCount++;
+int findIndOfOne(int* arr, int len){
+    for(int i = 0; i < len;i++){
+        if(arr[i] == 1){
+            return i;
         }
     }
-
-    printRepArr(arrRep, len);
+    return -1;
 }
+
 
 void printRepArr(int *arr, int len)
 {
@@ -83,6 +63,48 @@ void printRepArr(int *arr, int len)
     }
     printf("\n");
 }
+
+int* initializedArr(int len){
+    int* arr = malloc(sizeof(int)*len);
+    for(int i = 0;i < len;i++){
+        arr[i] = 0;
+    }
+    return arr;
+}
+
+void Task3()
+{
+    int mallocCalls = 0;
+    int freeCalls = 0;
+    int len = 30;
+    char* arr[len]; //malloc array of char pointers of size 120
+    int* repArr = initializedArr(len);
+
+    while(mallocCalls < len){
+        int random = rand() % 2;
+        if(random == 0){
+            char* byte = malloc(sizeof(char));
+            arr[mallocCalls] = byte;
+            repArr[mallocCalls] = 1;
+            mallocCalls++;
+        }
+
+        else if(random == 1){
+            int ind = findIndOfOne(repArr,len);
+            if(ind != -1){
+                free(arr[ind]);
+                repArr[ind] = 0;
+            }
+            freeCalls++;
+        }
+        printRepArr(repArr,len);
+    }
+
+    printRepArr(repArr,len);
+}
+
+
+
 
 int main()
 {

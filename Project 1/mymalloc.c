@@ -80,6 +80,7 @@ void myfree(void *ptr, char *file, int line)
     // first we iterate through the memory to make sure that the pointer was malloced and that its not freed.
     int index = 0;
     int isPtrMalloced = 0;
+    header* prev = NULL;
     do
     {
         header *h = (header *) &heap[index];
@@ -96,6 +97,7 @@ void myfree(void *ptr, char *file, int line)
             }
             break;
         }
+        prev = (header*) &heap[index];
         index += HEADER_SIZE + h->payload_size;
     } while (index < HEAP_SIZE);
     if (isPtrMalloced == 0)
@@ -111,7 +113,7 @@ void myfree(void *ptr, char *file, int line)
         return;
     }
 
-    // now we free the memory. If chunk ahead is also free we coalesce them.
+    // now we free the memory. If chunk ahead is also free we coalesce them (coalesce from front)
     header *h = (header *) &heap[index];
     h->isValid = 0;
     memset(h->ptr,0,h->payload_size);
@@ -126,6 +128,11 @@ void myfree(void *ptr, char *file, int line)
             h->payload_size += HEADER_SIZE + next->payload_size;
         }
     }
+    if(prev != NULL){
+        if(prev->isValid == 0){
+            prev->payload_size += HEADER_SIZE + h->payload_size;
+        }
+    }
 }
 
 void printMem()
@@ -137,19 +144,51 @@ void printMem()
         printf("Chunk at index: %d has size %d. Valid value: %d\n", index, h->payload_size, h->isValid);
         index += HEADER_SIZE + h->payload_size;
     } while (index < HEAP_SIZE);
+    printf("\n");
+}
+
+void FreeAll(){
+    header* h = (header*) heap;
+    free(h->ptr);
+    while(h->payload_size != HEAP_SIZE - HEADER_SIZE){
+        header* next = (header*) &heap[HEADER_SIZE + h->payload_size];
+        free(next->ptr); // freeing thing after h. h should coalesce
+    }
 }
 
 
-/*
+
+
 int main(){
     int* arr = malloc(5*sizeof(int));
+    arr[3] = 28;
 
     char *string = malloc(45 * sizeof(char));
+
+    long* arr2 = malloc(38*sizeof(long));
+    arr2[20] = 69;
 
     string = memcpy(string, "Hello my name is Sina Hazeghi", 30);
 
     printMem();
 
+    FreeAll();
+
+    printMem();
+
+
+/*
+    free(string);
+
+    printMem();
+
+    free(arr);
+
+    printMem();
+
+    free(arr2);
+
+    
     free(string);
 
     printMem();
@@ -163,8 +202,9 @@ int main(){
     free(arr);
 
     free(arr);
-
+    
+*/
     return EXIT_SUCCESS;
 
 }
-*/
+
