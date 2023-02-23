@@ -14,8 +14,8 @@ void test1() // malloc and free 120 bytes
     {
         for (int i = 0; i < 120; i++)
         {
-            char *temp = malloc(sizeof(char));
-            free(temp);
+            char *c = malloc(sizeof(char));
+            free(c);
         }
     }
     gettimeofday(&endTime, NULL);
@@ -29,19 +29,26 @@ void test2() // malloc 120 in an array and then free 120
     gettimeofday(&startTime, NULL);
     for (int j = 0; j < 50; j++)
     {
-        char *arr[120];
-        for (int i = 0; i < 120; i++)
+        int len = 120;
+        char **arr = malloc(sizeof(char *) * len); // make a 120 length array of char pointers
+        for (int i = 0; i < len; i++)
         {
-            char *temp = malloc(sizeof(char));
-            arr[i] = temp;
+            char *byte = malloc(sizeof(char));
+            arr[i] = byte;
         }
-        for (int i = 0; i < 120; i++)
-        {
-            free(arr[i]);
-        }
+        freeTask2(arr, len);
     }
     gettimeofday(&endTime, NULL);
     printf("Time for Test 2:  %ld microseconds\n", (((endTime.tv_sec - startTime.tv_sec) * 100000) + (endTime.tv_usec - startTime.tv_usec)) / 50);
+}
+
+void freeTask2(char **arr, int len)
+{
+    for (int i = 0; i < len; i++)
+    {
+        free(arr[i]);
+    }
+    free(arr);
 }
 
 void test3()
@@ -98,14 +105,16 @@ void test4() // free backwards
     for (int j = 0; j < 50; j++)
     {
         char *arr[120];
-        for (int i = 0; i < 120; i++)
+        for (int i = 0; i < 40; i++)
         {
-            char *temp = malloc(sizeof(char));
-            arr[i] = temp;
-        }
-        for (int i = 119; i > 0; i--)
-        {
-            free(arr[i]);
+            double *x = malloc(sizeof(double));
+            int *y = malloc(sizeof(char));
+            long *z = malloc(sizeof(long));
+            uint *pp = malloc(sizeof(uint));
+            free(z);
+            free(y);
+            free(x);
+            free(pp);
         }
     }
     gettimeofday(&endTime, NULL);
@@ -146,5 +155,5 @@ int main(int argc, char *argv[])
     test4();
     test5();
 
-    return 1;
+    return EXIT_SUCCESS;
 }
