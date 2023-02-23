@@ -25,7 +25,7 @@ void test1() // malloc and free 120 bytes
 
 void freeTask2(char **arr, int len)
 {
-    for (int i = 0; i < len; i++)
+    for (int i = len - 1; i >= 0; i--)
     {
         free(arr[i]);
     }
@@ -148,8 +148,17 @@ void test5()
 int main(int argc, char *argv[])
 {
     test1();
+    printMem();
+    printf("\n");
+
     test2();
+    printMem();
+    printf("\n");
+
     test3();
+    printMem();
+    printf("\n");
+
     test4();
     test5();
 
