@@ -17,66 +17,76 @@ void Task1()
     }
 }
 
-void freeTask2(char** arr, int len);
+void freeTask2(char **arr, int len);
 
-void Task2(){
+void Task2()
+{
     int len = 120;
-    char** arr = malloc(sizeof(char*) * len); //make a 120 length array of char pointers
-    for(int i = 0;i < len;i++){
-        char* byte = malloc(sizeof(char));
+    char **arr = malloc(sizeof(char *) * len); // make a 120 length array of char pointers
+    for (int i = 0; i < len; i++)
+    {
+        char *byte = malloc(sizeof(char));
         arr[i] = byte;
     }
-    freeTask2(arr,len);
+    freeTask2(arr, len);
 }
 
-void freeTask2(char** arr, int len){
-    for(int i = 0; i < len;i++){
+void freeTask2(char **arr, int len)
+{
+    for (int i = 0; i < len; i++)
+    {
         free(arr[i]);
     }
     free(arr);
 }
 
-void printRepArr(int* arr, int len);
+void printRepArr(int *arr, int len);
 
-void Task3(){
+void Task3()
+{
     int mallocCount = 0;
     int freeCount = 0;
     int len = 120;
-    char** arr = malloc(sizeof(char*)*len);
-    int* arrRep = malloc(sizeof(int)*len);
-    
-    while(mallocCount < 120){
-        int randomNumber = rand()%(3-1) + 1;
-        if(randomNumber == 1){
-            char* c = malloc(sizeof(char));
+    char **arr = malloc(sizeof(char *) * len);
+    int *arrRep = malloc(sizeof(int) * len);
+
+    while (mallocCount < 120)
+    {
+        int randomNumber = rand() % (3 - 1) + 1;
+        if (randomNumber == 1)
+        {
+            char *c = malloc(sizeof(char));
             arr[mallocCount] = c;
             arrRep[mallocCount] = 1;
             mallocCount++;
         }
-        else if(randomNumber == 2 && freeCount < 120){
+        else if (randomNumber == 2 && freeCount < 120)
+        {
             free(arr[freeCount]);
             arrRep[freeCount] = 0;
+            freeCount++;
         }
     }
 
-    printRepArr(arrRep,len);
-
+    printRepArr(arrRep, len);
 }
 
-void printRepArr(int* arr, int len){
-    for(int i = 0;i < len;i++){
-        printf("%d,",arr[i]);
-        if(i % 12 == 0 && i != 0){
+void printRepArr(int *arr, int len)
+{
+    for (int i = 0; i < len; i++)
+    {
+        printf("%d,", arr[i]);
+        if (i % 12 == 0 && i != 0)
+        {
             printf("\n");
         }
     }
     printf("\n");
 }
 
-
 int main()
 {
-    
+
     /*
     long arrays[RUN_COUNT];
     // first part: allocate and immediately free 120 1-byte chunks. Repeat this fifty times
