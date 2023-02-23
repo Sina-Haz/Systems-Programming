@@ -23,6 +23,15 @@ void test1() // malloc and free 120 bytes
     return;
 }
 
+void freeTask2(char **arr, int len)
+{
+    for (int i = 0; i < len; i++)
+    {
+        free(arr[i]);
+    }
+    free(arr);
+}
+
 void test2() // malloc 120 in an array and then free 120
 {
     struct timeval startTime, endTime;
@@ -40,15 +49,6 @@ void test2() // malloc 120 in an array and then free 120
     }
     gettimeofday(&endTime, NULL);
     printf("Time for Test 2:  %ld microseconds\n", (((endTime.tv_sec - startTime.tv_sec) * 100000) + (endTime.tv_usec - startTime.tv_usec)) / 50);
-}
-
-void freeTask2(char **arr, int len)
-{
-    for (int i = 0; i < len; i++)
-    {
-        free(arr[i]);
-    }
-    free(arr);
 }
 
 void test3()
@@ -110,11 +110,9 @@ void test4() // free backwards
             double *x = malloc(sizeof(double));
             int *y = malloc(sizeof(char));
             long *z = malloc(sizeof(long));
-            uint *pp = malloc(sizeof(uint));
             free(z);
             free(y);
             free(x);
-            free(pp);
         }
     }
     gettimeofday(&endTime, NULL);
