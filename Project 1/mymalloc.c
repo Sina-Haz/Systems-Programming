@@ -4,14 +4,12 @@
 #include "mymalloc.h"
 
 // metadata includes: the size of the data, whether its free or not, a ptr to the data.
-#pragma pack(push,1)
 typedef struct header
 {
     int payload_size;
     short isValid;
     void *ptr;
 } header;
-#pragma pack(pop)
 
 #define HEADER_SIZE sizeof(header)
 #define HEAP_SIZE 4096
@@ -26,7 +24,7 @@ void initializeMemory()
     header *h = (header *)heap;
     h->isValid = 0;
     h->payload_size = HEAP_SIZE - HEADER_SIZE;
-    h->ptr = heap + HEADER_SIZE;
+    h->ptr = (void*) &heap[HEADER_SIZE];
     memset(h->ptr, 0, h->payload_size);
 }
 
@@ -47,7 +45,7 @@ void *mymalloc(size_t size, char *file, int line)
     int index = 0;
     do
     {
-        header *h = (header *)heap + index;
+        header *h = (header *) &heap[index];
 
         if (h->isValid == 0)
         {
@@ -56,10 +54,10 @@ void *mymalloc(size_t size, char *file, int line)
                 // if size is such that we can split up this chunk into 2 chunks, need to make a new header
                 if (size < (h->payload_size - HEADER_SIZE))
                 {
-                    header *new = (header*) heap + index + HEADER_SIZE + size;
+                    header *new = (header*) &heap[index + HEADER_SIZE + size];
                     new->isValid = 0;
                     new->payload_size = h->payload_size - size - HEADER_SIZE;
-                    new->ptr = new + HEADER_SIZE;
+                    new->ptr = (void*) &heap[index + 2*HEADER_SIZE + size];
                     h->payload_size = size;
                 }
                 // if the size is too large to split up this chunk
@@ -84,7 +82,7 @@ void myfree(void *ptr, char *file, int line)
     int isPtrMalloced = 0;
     do
     {
-        header *h = (header *)heap + index;
+        header *h = (header *) &heap[index];
         if (ptr == h->ptr)
         {
             if (h->isValid == 1)
@@ -114,14 +112,15 @@ void myfree(void *ptr, char *file, int line)
     }
 
     // now we free the memory. If chunk ahead is also free we coalesce them.
-    header *h = (header *)heap + index;
+    header *h = (header *) &heap[index];
     h->isValid = 0;
+    memset(h->ptr,0,h->payload_size);
 
     // before we eager coalesce need to make sure that this isn't the last chunk in the heap.
     // can likely do this with index
     if (index + HEADER_SIZE + h->payload_size < HEAP_SIZE)
     {
-        header *next = (header *)heap + index + HEADER_SIZE + h->payload_size;
+        header *next = (header *) &heap[index + HEADER_SIZE + h->payload_size];
         if (next->isValid == 0)
         {
             h->payload_size += HEADER_SIZE + next->payload_size;
@@ -134,14 +133,14 @@ void printMem()
     int index = 0;
     do
     {
-        header *h = (header *)heap + index;
+        header *h = (header *)&heap[index];
         printf("Chunk at index: %d has size %d. Valid value: %d\n", index, h->payload_size, h->isValid);
         index += HEADER_SIZE + h->payload_size;
     } while (index < HEAP_SIZE);
 }
 
-/*
 
+/*
 int main(){
     int* arr = malloc(5*sizeof(int));
 
@@ -163,8 +162,9 @@ int main(){
 
     free(arr);
 
+    free(arr);
+
     return EXIT_SUCCESS;
 
 }
-
 */

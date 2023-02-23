@@ -35,24 +35,43 @@ void freeTask2(char** arr, int len){
     }
     free(arr);
 }
-/*
-void loops2theSequel(char storage[120][1])
-{
-    for (int i = 0; i < 120; i++)
-    {
-        char *c = malloc(sizeof(char));
-        storage[i][0] = (int*) c;
+
+void printRepArr(int* arr, int len);
+
+void Task3(){
+    int mallocCount = 0;
+    int freeCount = 0;
+    int len = 120;
+    char** arr = malloc(sizeof(char*)*len);
+    int* arrRep = malloc(sizeof(int)*len);
+    
+    while(mallocCount < 120){
+        int randomNumber = rand()%(3-1) + 1;
+        if(randomNumber == 1){
+            char* c = malloc(sizeof(char));
+            arr[mallocCount] = c;
+            arrRep[mallocCount] = 1;
+            mallocCount++;
+        }
+        else if(randomNumber == 2 && freeCount < 120){
+            free(arr[freeCount]);
+            arrRep[freeCount] = 0;
+        }
     }
+
+    printRepArr(arrRep,len);
+
 }
 
-void loops3TheFreeing(char storage[120][1])
-{
-    for (int i = 0; i < 120; i++)
-    {
-        free(storage[i][0]);
+void printRepArr(int* arr, int len){
+    for(int i = 0;i < len;i++){
+        printf("%d,",arr[i]);
+        if(i % 12 == 0 && i != 0){
+            printf("\n");
+        }
     }
+    printf("\n");
 }
-*/
 
 
 int main()
@@ -83,6 +102,8 @@ int main()
     */
 
     Task2();
+
+    Task3();
 
     /*
 

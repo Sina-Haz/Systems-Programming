@@ -1,6 +1,6 @@
 CFLAGS = -g -Wall -Werror -fsanitize=address
 
-all:memgrind
+all: memgrind
 	
 mymalloc:mymalloc.c
 	gcc $(CFLAGS) mymalloc.c -o mymalloc
