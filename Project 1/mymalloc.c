@@ -24,7 +24,7 @@ void initializeMemory()
     header *h = (header *)heap;
     h->isValid = 0;
     h->payload_size = HEAP_SIZE - HEADER_SIZE;
-    h->ptr = (void*) &heap[HEADER_SIZE];
+    h->ptr = (void *)&heap[HEADER_SIZE];
     memset(h->ptr, 0, h->payload_size);
 }
 
@@ -45,7 +45,7 @@ void *mymalloc(size_t size, char *file, int line)
     int index = 0;
     do
     {
-        header *h = (header *) &heap[index];
+        header *h = (header *)&heap[index];
 
         if (h->isValid == 0)
         {
@@ -54,10 +54,10 @@ void *mymalloc(size_t size, char *file, int line)
                 // if size is such that we can split up this chunk into 2 chunks, need to make a new header
                 if (size < (h->payload_size - HEADER_SIZE))
                 {
-                    header *new = (header*) &heap[index + HEADER_SIZE + size];
+                    header *new = (header *)&heap[index + HEADER_SIZE + size];
                     new->isValid = 0;
                     new->payload_size = h->payload_size - size - HEADER_SIZE;
-                    new->ptr = (void*) &heap[index + 2*HEADER_SIZE + size];
+                    new->ptr = (void *)&heap[index + 2 * HEADER_SIZE + size];
                     h->payload_size = size;
                 }
                 // if the size is too large to split up this chunk
@@ -80,10 +80,10 @@ void myfree(void *ptr, char *file, int line)
     // first we iterate through the memory to make sure that the pointer was malloced and that its not freed.
     int index = 0;
     int isPtrMalloced = 0;
-    header* prev = NULL;
+    header *prev = NULL;
     do
     {
-        header *h = (header *) &heap[index];
+        header *h = (header *)&heap[index];
         if (ptr == h->ptr)
         {
             if (h->isValid == 1)
@@ -97,7 +97,7 @@ void myfree(void *ptr, char *file, int line)
             }
             break;
         }
-        prev = (header*) &heap[index];
+        prev = (header *)&heap[index];
         index += HEADER_SIZE + h->payload_size;
     } while (index < HEAP_SIZE);
     if (isPtrMalloced == 0)
@@ -114,22 +114,24 @@ void myfree(void *ptr, char *file, int line)
     }
 
     // now we free the memory. If chunk ahead is also free we coalesce them (coalesce from front)
-    header *h = (header *) &heap[index];
+    header *h = (header *)&heap[index];
     h->isValid = 0;
-    memset(h->ptr,0,h->payload_size);
+    memset(h->ptr, 0, h->payload_size);
 
     // before we eager coalesce need to make sure that this isn't the last chunk in the heap.
     // can likely do this with index
     if (index + HEADER_SIZE + h->payload_size < HEAP_SIZE)
     {
-        header *next = (header *) &heap[index + HEADER_SIZE + h->payload_size];
+        header *next = (header *)&heap[index + HEADER_SIZE + h->payload_size];
         if (next->isValid == 0)
         {
             h->payload_size += HEADER_SIZE + next->payload_size;
         }
     }
-    if(prev != NULL){
-        if(prev->isValid == 0){
+    if (prev != NULL)
+    {
+        if (prev->isValid == 0)
+        {
             prev->payload_size += HEADER_SIZE + h->payload_size;
         }
     }
@@ -147,64 +149,60 @@ void printMem()
     printf("\n");
 }
 
-void FreeAll(){
-    header* h = (header*) heap;
+void FreeAll()
+{
+    header *h = (header *)heap;
     free(h->ptr);
-    while(h->payload_size != HEAP_SIZE - HEADER_SIZE){
-        header* next = (header*) &heap[HEADER_SIZE + h->payload_size];
+    while (h->payload_size != HEAP_SIZE - HEADER_SIZE)
+    {
+        header *next = (header *)&heap[HEADER_SIZE + h->payload_size];
         free(next->ptr); // freeing thing after h. h should coalesce
     }
 }
 
+// int main(){
+//     int* arr = malloc(5*sizeof(int));
+//     arr[3] = 28;
 
+//     char *string = malloc(45 * sizeof(char));
 
+//     long* arr2 = malloc(38*sizeof(long));
+//     arr2[20] = 69;
 
-int main(){
-    int* arr = malloc(5*sizeof(int));
-    arr[3] = 28;
+//     string = memcpy(string, "Hello my name is Sina Hazeghi", 30);
 
-    char *string = malloc(45 * sizeof(char));
+//     printMem();
 
-    long* arr2 = malloc(38*sizeof(long));
-    arr2[20] = 69;
+//     FreeAll();
 
-    string = memcpy(string, "Hello my name is Sina Hazeghi", 30);
+//     printMem();
 
-    printMem();
+// /*
+//     free(string);
 
-    FreeAll();
+//     printMem();
 
-    printMem();
+//     free(arr);
 
+//     printMem();
 
-/*
-    free(string);
+//     free(arr2);
 
-    printMem();
+//     free(string);
 
-    free(arr);
+//     printMem();
 
-    printMem();
+//     int num = 0;
 
-    free(arr2);
+//     free(&num);
 
-    
-    free(string);
+//     free(arr + 2);
 
-    printMem();
+//     free(arr);
 
-    int num = 0;
+//     free(arr);
 
-    free(&num);
+// */
+//     return EXIT_SUCCESS;
 
-    free(arr + 2);
-
-    free(arr);
-
-    free(arr);
-    
-*/
-    return EXIT_SUCCESS;
-
-}
-
+// }

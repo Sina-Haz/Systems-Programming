@@ -1,168 +1,187 @@
 #include <stdio.h>
+#include <stddef.h>
 #include <stdlib.h>
+#include <time.h>
 #include <sys/time.h>
 #include "mymalloc.h"
 #include "mymalloc.c"
 
-#define TASK_COUNT 4
-#define RUN_COUNT 50
-
-// this method for the first part of memgrind, where me make a 1 byte chunk and free it 120 times
-void Task1()
+void test1() // malloc and free 120 bytes
 {
-    for (int i = 0; i < 120; i++)
+    struct timeval startTime, endTime;
+    gettimeofday(&startTime, NULL);
+    for (int j = 0; j < 50; j++)
     {
-        char *c = malloc(sizeof(char));
-        free(c);
+        for (int i = 0; i < 120; i++)
+        {
+            char *c = malloc(sizeof(char));
+            free(c);
+        }
     }
-}
-
-void freeTask2(char **arr, int len);
-
-void Task2()
-{
-    int len = 120;
-    char **arr = malloc(sizeof(char *) * len); // make a 120 length array of char pointers
-    for (int i = 0; i < len; i++)
-    {
-        char *byte = malloc(sizeof(char));
-        arr[i] = byte;
-    }
-    freeTask2(arr, len);
+    gettimeofday(&endTime, NULL);
+    printf("Time for Test 1:  %ld microseconds\n", (((endTime.tv_sec - startTime.tv_sec) * 100000) + (endTime.tv_usec - startTime.tv_usec)) / 50);
+    return;
 }
 
 void freeTask2(char **arr, int len)
 {
-    for (int i = 0; i < len; i++)
+    for (int i = len - 1; i >= 0; i--)
     {
         free(arr[i]);
     }
     free(arr);
 }
 
-
-int findIndOfOne(int* arr, int len){
-    for(int i = 0; i < len;i++){
-        if(arr[i] == 1){
-            return i;
-        }
-    }
-    return -1;
-}
-
-
-void printRepArr(int *arr, int len)
+void test2() // malloc 120 in an array and then free 120
 {
-    for (int i = 0; i < len; i++)
+    struct timeval startTime, endTime;
+    gettimeofday(&startTime, NULL);
+    for (int j = 0; j < 50; j++)
     {
-        printf("%d,", arr[i]);
-        if (i % 12 == 0 && i != 0)
+        int len = 120;
+        char **arr = malloc(sizeof(char *) * len); // make a 120 length array of char pointers
+        for (int i = 0; i < len; i++)
         {
-            printf("\n");
+            char *byte = malloc(sizeof(char));
+            arr[i] = byte;
         }
+        freeTask2(arr, len);
     }
-    printf("\n");
+    gettimeofday(&endTime, NULL);
+    printf("Time for Test 2:  %ld microseconds\n", (((endTime.tv_sec - startTime.tv_sec) * 100000) + (endTime.tv_usec - startTime.tv_usec)) / 50);
 }
 
-int* initializedArr(int len){
-    int* arr = malloc(sizeof(int)*len);
-    for(int i = 0;i < len;i++){
-        arr[i] = 0;
-    }
-    return arr;
-}
-
-void Task3()
+void test3()
 {
-    int mallocCalls = 0;
-    int freeCalls = 0;
-    int len = 30;
-    char* arr[len]; //malloc array of char pointers of size 120
-    int* repArr = initializedArr(len);
+    struct timeval startTime, endTime;
+    gettimeofday(&startTime, NULL);
 
-    while(mallocCalls < len){
-        int random = rand() % 2;
-        if(random == 0){
-            char* byte = malloc(sizeof(char));
-            arr[mallocCalls] = byte;
-            repArr[mallocCalls] = 1;
-            mallocCalls++;
+    for (int j = 0; j < 50; j++)
+    {
+        int mallocCount = 0;
+        char **array = malloc(sizeof(char *) * 120);
+        int checker[120];
+        for (int i = 0; i < 120; i++)
+        {
+            checker[i] = 0;
         }
 
-        else if(random == 1){
-            int ind = findIndOfOne(repArr,len);
-            if(ind != -1){
-                free(arr[ind]);
-                repArr[ind] = 0;
+        while (mallocCount < 120)
+        {
+
+            int randomNumber = rand() % (3 - 1) + 1;
+
+            if (randomNumber == 1)
+            {
+                char *c = malloc(sizeof(char));
+                array[mallocCount] = c;
+                checker[mallocCount] = 1;
+                mallocCount++;
             }
-            freeCalls++;
+            else
+            {
+                int index = 119;
+                int deleted = 0;
+                while (deleted == 0 && index >= 0)
+                {
+                    if (checker[index] == 1)
+                    {
+                        free(array[index]);
+                        checker[index] = 0;
+                        deleted = 1;
+                    }
+                    else
+                    {
+                        index--;
+                    }
+                }
+            }
         }
-        printRepArr(repArr,len);
+        int k = 119;
+        while (k >= 0)
+        {
+            if (checker[k] == 1)
+            {
+                free(array[k]);
+                checker[k] = 0;
+                k--;
+            }
+            else
+            {
+                k--;
+            }
+        }
+        free(array);
     }
-
-    printRepArr(repArr,len);
+    gettimeofday(&endTime, NULL);
+    printf("Time for Test 3:  %ld microseconds\n", (((endTime.tv_sec - startTime.tv_sec) * 100000) + (endTime.tv_usec - startTime.tv_usec)) / 50);
+    return;
 }
 
-
-
-
-int main()
+void test4() // three differnet data types
 {
-
-    /*
-    long arrays[RUN_COUNT];
-    // first part: allocate and immediately free 120 1-byte chunks. Repeat this fifty times
-
-
-    long avg1 = 0;
-    struct timeval start,end;
-    for (int k = 0; k < RUN_COUNT; k++)
+    struct timeval startTime, endTime;
+    gettimeofday(&startTime, NULL);
+    for (int j = 0; j < 50; j++)
     {
-        gettimeofday(&start,NULL);
-        Task1();
-        gettimeofday(&end,NULL);
-        arrays[k] = (double) (end.tv_sec - start.tv_sec) * 1000000
-                          + (double) (end.tv_usec - start.tv_usec); //in microseconds
+        char *arr[120];
+        for (int i = 0; i < 40; i++)
+        {
+            double *x = malloc(sizeof(double));
+            int *y = malloc(sizeof(char));
+            long *z = malloc(sizeof(long));
+            free(z);
+            free(y);
+            free(x);
+        }
     }
+    gettimeofday(&endTime, NULL);
+    printf("Time for Test 4:  %ld microseconds\n", (((endTime.tv_sec - startTime.tv_sec) * 100000) + (endTime.tv_usec - startTime.tv_usec)) / 50);
+    return;
+}
 
-    for (int i = 0; i < RUN_COUNT; i++)
+void test5Loop();
+
+void test5()
+{
+    struct timeval startTime, endTime;
+    gettimeofday(&startTime, NULL);
+    test5Loop(); // dummy placeholder method
+    gettimeofday(&endTime, NULL);
+    printf("Time for Test 5:  %ld microseconds\n", (((endTime.tv_sec - startTime.tv_sec) * 100000) + (endTime.tv_usec - startTime.tv_usec)) / 50);
+    return;
+}
+
+void test5Loop()
+{
+    for (int j = 0; j < 1000; j++)
     {
-        avg1 += arrays[i];
+        char *dummy = malloc(sizeof(char));
+        free(dummy);
     }
-    avg1 /= RUN_COUNT;
-    printf("Time average measured for task 1 is %li microseconds.\n", avg1);
-    */
+}
 
-    Task2();
+int main(int argc, char *argv[])
+{
+    test1();
+    printMem();
+    printf("\n");
 
-    Task3();
+    test2();
+    printMem();
+    printf("\n");
 
-    /*
+    test3();
+    printMem();
+    printf("\n");
 
-    // part 2 starts below:
-    //      2. Use malloc() to get 120 1-byte chunks, storing the pointers in an array, then use free() to
-    //  deallocate the chunks.
+    test4();
+    printMem();
+    printf("\n");
 
-    long avg2 = 0;
-    long arrays2[50];
-    for (int k = 0; k < 50; k++)
-    {
-        char storage[120][1]; // will be used to store the pointers we're freeing
-        clock_t start2 = clock();
-        loops2theSequel(storage);
-        printf("breakpoint 1");
-        loops3TheFreeing(storage);
-        clock_t end2 = clock();
-        arrays2[k] = (end2 - start2) * (0.000001) / (double)CLOCKS_PER_SEC; // in microseconds
-    }
-    long total2 = 0;
-    for (int i = 0; i < 50; i++)
-    {
-        total2 += arrays2[i];
-    }
-    total2 /= 50;
-    printf("Time average measured for task 2 is %lli seconds.\n", total2);
-    */
+    test5();
+    printMem();
+    printf("\n");
 
-    return 0;
+    return EXIT_SUCCESS;
 }
