@@ -139,9 +139,8 @@ void test4() // three differnet data types
     return;
 }
 
-void Task5(){ //malloc 4 things that equal exact size of arr, malloc once more, free 2 objects, malloc the exact space left
+void Task5(int numObj){ //malloc 4 things that equal exact size of arr, malloc once more, free 2 objects, malloc the exact space left
     //4096 - 4(x+sizeof(header)) = 0
-    int numObj = 6;
     void* ptrArr[numObj];
     int sizeOfObj = (4096/numObj) - sizeof(header);
     for(int i = 0;i < numObj;i++){
@@ -160,7 +159,7 @@ void test5()
 {
     struct timeval startTime, endTime;
     gettimeofday(&startTime, NULL);
-    Task5();
+    Task5(100);
     gettimeofday(&endTime, NULL);
     printf("Time for Test 5:  %ld microseconds\n", (((endTime.tv_sec - startTime.tv_sec) * 100000) + (endTime.tv_usec - startTime.tv_usec)) / 50);
     return;
