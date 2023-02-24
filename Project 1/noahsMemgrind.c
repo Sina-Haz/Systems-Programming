@@ -23,7 +23,8 @@ void test1() // malloc and free 120 bytes
     return;
 }
 
-void freeTask2(char **arr, int len)
+
+void freeCharPtrArr(char **arr, int len)
 {
     for (int i = len - 1; i >= 0; i--)
     {
@@ -45,7 +46,7 @@ void test2() // malloc 120 in an array and then free 120
             char *byte = malloc(sizeof(char));
             arr[i] = byte;
         }
-        freeTask2(arr, len);
+        freeCharPtrArr(arr, len);
     }
     gettimeofday(&endTime, NULL);
     printf("Time for Test 2:  %ld microseconds\n", (((endTime.tv_sec - startTime.tv_sec) * 100000) + (endTime.tv_usec - startTime.tv_usec)) / 50);
@@ -124,7 +125,6 @@ void test4() // three differnet data types
     gettimeofday(&startTime, NULL);
     for (int j = 0; j < 50; j++)
     {
-        char *arr[120];
         for (int i = 0; i < 40; i++)
         {
             double *x = malloc(sizeof(double));

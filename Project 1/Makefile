@@ -4,8 +4,8 @@ all: memgrind
 	
 mymalloc:mymalloc.c
 	gcc $(CFLAGS) mymalloc.c -o mymalloc
-memgrind:memgrind.c
-	gcc $(CFLAGS) memgrind.c -o memgrind
+memgrind:noahsMemgrind.c
+	gcc $(CFLAGS) noahsMemgrind.c -o memgrind
 clean:
 	rm memgrind
 	rm mymalloc

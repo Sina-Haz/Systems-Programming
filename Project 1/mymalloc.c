@@ -158,7 +158,7 @@ void FreeAll(){
 
 
 
-
+/*
 int main(){
     int* arr = malloc(5*sizeof(int));
     arr[3] = 28;
@@ -177,7 +177,7 @@ int main(){
     printMem();
 
 
-/*
+
     free(string);
 
     printMem();
@@ -203,8 +203,9 @@ int main(){
 
     free(arr);
     
-*/
+
     return EXIT_SUCCESS;
 
 }
+*/
 
