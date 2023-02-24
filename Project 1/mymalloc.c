@@ -77,6 +77,10 @@ void *mymalloc(size_t size, char *file, int line)
 //(either behind or in front) that are also free get merged into 1 chunk.
 void myfree(void *ptr, char *file, int line)
 {
+    if(ptr == NULL){
+        printf("null pointer passed\n");
+        return;
+        }
     // first we iterate through the memory to make sure that the pointer was malloced and that its not freed.
     int index = 0;
     int isPtrMalloced = 0;

@@ -124,7 +124,6 @@ void test4() // three differnet data types
     gettimeofday(&startTime, NULL);
     for (int j = 0; j < 50; j++)
     {
-        char *arr[120];
         for (int i = 0; i < 40; i++)
         {
             double *x = malloc(sizeof(double));
@@ -140,26 +139,34 @@ void test4() // three differnet data types
     return;
 }
 
-void test5Loop();
+void Task5(){ //malloc 4 things that equal exact size of arr, malloc once more, free 2 objects, malloc the exact space left
+    //4096 - 4(x+sizeof(header)) = 0
+    int numObj = 6;
+    void* ptrArr[numObj];
+    int sizeOfObj = (4096/numObj) - sizeof(header);
+    for(int i = 0;i < numObj;i++){
+        ptrArr[i] = malloc(sizeOfObj); 
+    }
+    void* extraPtr = malloc(sizeOfObj); //this one should be a NULL ptr and should print that there isn't enough space
+    free(extraPtr);
+    free(ptrArr[numObj-1]);
+    free(ptrArr[numObj-2]);
+    int sizeOfNewObj = sizeOfObj*2 + sizeof(header);
+    void* newPtr = malloc(sizeOfNewObj); //This should be able to malloc once the freed memory coallesces
+    free(newPtr);
+}
 
 void test5()
 {
     struct timeval startTime, endTime;
     gettimeofday(&startTime, NULL);
-    test5Loop(); // dummy placeholder method
+    Task5();
     gettimeofday(&endTime, NULL);
     printf("Time for Test 5:  %ld microseconds\n", (((endTime.tv_sec - startTime.tv_sec) * 100000) + (endTime.tv_usec - startTime.tv_usec)) / 50);
     return;
 }
 
-void test5Loop()
-{
-    for (int j = 0; j < 1000; j++)
-    {
-        char *dummy = malloc(sizeof(char));
-        free(dummy);
-    }
-}
+
 
 int main(int argc, char *argv[])
 {

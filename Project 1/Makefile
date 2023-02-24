@@ -15,3 +15,6 @@ test3:test3.c
 clean:
 	rm memgrind
 	rm mymalloc
+	rm test1
+	rm test2
+	rm test3
