@@ -1,0 +1,21 @@
+Partner 1 name and netID: Sina Hazeghi (skh79)
+Partner 2 name and netiD: Noah Cameron (nwc21)
+
+Test Plan:
+
+A. Things our library should be able to accomplish:
+-Identify when it no longer has enough free space to allocate the space requested.
+-Always allocate correct size of memory requested
+-Should never change the location/ptr value of an allocated chunk of memory
+-Should be able to write to pointers allocate by mymalloc(), and as long as what we write is <= to amount of space we allocated this shouldn’t overwrite any other memory that’s allocated
+-myfree() should detect whether a passed pointer argument was allocated by mymalloc() or not. If not allocated through mymalloc() should do nothing.
+-myfree() should be able to detect when a passed pointer is allocated through -mymalloc() but is not at the beginning of a chunk of memory.
+-myfree() should recognize double frees on the same pointer
+-Should be able to coalesce free space, using eager coalescing. So after every -free should check to see if adjacent chunks can be combined
+-Free() deallocates memory so that it can be used for something else.
+
+B.
+-We will test our code by using a wide variety of files that use both successful mallocs, as well as ones that should, if our code works as intended, be seen as invalid calls to malloc. Some of this will be done in memgrind, as well as in two additional test files that contain issues memgrind does not cover
+
+C.
+Specifically, the first test file, memgrind.c. This one will contain all of the necessary stress tests, as well as two of our own. The first 3 tasks will be exactly like the ones depicted in the directions. The fourth will allocate 3 different data types and free all 3, 40 times, making for 120 calls to malloc and free. We will then repeat this 50 times. In addition, our first test file will fill up the heap with a call to malloc, and will then fail to malloc a second pointer, seeing as there is no room. In addition, it will free up the pointer hogging all the space, and then successfully malloc a new variable. In our second test file, we will attempt to free an invalid pointer, as well as attempt a double free. In our third, we will create a char array and store a string within it using memcpy. We will then free it. Also, we will attempt to free something that wasn’t malloced, an invalid pointer, and make an attempt a double free, all of which should be caught by our program.
