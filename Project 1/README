@@ -12,7 +12,8 @@ A. Things our library should be able to accomplish:
 -myfree() should be able to detect when a passed pointer is allocated through -mymalloc() but is not at the beginning of a chunk of memory.
 -myfree() should recognize double frees on the same pointer
 -Should be able to coalesce free space, using eager coalescing. So after every -free should check to see if adjacent chunks can be combined
--Free() deallocates memory so that it can be used for something else.
+-Free() deallocates memory so that it can be used for something else.ld
+-Use a print me function for testing purposes and to make sure every function does what it shou
 
 B.
 -We will test our code by using a wide variety of files that use both successful mallocs, as well as ones that should, if our code works as intended, be seen as invalid calls to malloc. Some of this will be done in memgrind, as well as in two additional test files that contain issues memgrind does not cover
