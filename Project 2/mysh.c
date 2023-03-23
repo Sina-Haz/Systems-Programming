@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <dirent.h>
 
 #define MAX_CMD_LENGTH 100
 #define MAX_TOKENS 100
@@ -126,6 +127,10 @@ void addToPath(char *command, char *buf)
 void processCommand()
 {
     char *cmd = tokens[0];
+    DIR *dp;
+    dp = opendir(".");
+    struct dirent *dir;
+
     if (strcmp(cmd, "cd") == 0)
     {
         // complete cd process
@@ -142,9 +147,18 @@ void processCommand()
     }
     else if (strcmp(cmd, "ls") == 0)
     {
+        while ((dir = readdir(dp)) != NULL)
+        {
+            printf("%s\n", dir->d_name);
+        }
     }
     else if (strcmp(cmd, "mkdir") == 0)
     {
+        int result = mkdir(tokens[1]);
+        if (result != 0)
+        {
+            printf("Error creating directory");
+        }
     }
     else if (strcmp(cmd, "cat"))
     {
