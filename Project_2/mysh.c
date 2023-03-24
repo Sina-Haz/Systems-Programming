@@ -97,10 +97,10 @@ void printCmds()
 // trying to read any extra input.
 int CheckForExtraInput(int fd)
 {
-    // int flags = fcntl(fd, F_GETFL, 0);
-    // fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    int flags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
     ssize_t extra_bytes_read = read(fd, extraBuffer, EXTRA);
-    // fcntl(fd, F_SETFL, flags);
+    fcntl(fd, F_SETFL, flags);
     if (extra_bytes_read != -1)
     {
         return 1;
@@ -171,6 +171,7 @@ void CommandLoop(int fd)
                 break;
             }
             parseCommand();
+            processCommand();
             printNextLine();
         }
     }
@@ -191,20 +192,21 @@ void BatchShell(int fd)
 
 int main(int argc, char *argv[])
 {
-    // if (argc > 1)
-    // {
-    //     int fd = open(argv[1], O_RDONLY);
+    if (argc > 1)
+    {
+        int fd = open(argv[1], O_RDONLY);
 
-    //     if (fd == -1)
-    //     {
-    //         printf("Error with opening file argument");
-    //         return EXIT_FAILURE;
-    //     }
+        if (fd == -1)
+        {
+            printf("Error with opening file argument");
+            return EXIT_FAILURE;
+        }
 
-    //     BatchShell(fd);
-    // }
-    // InteractiveShell();
-    while (1 == 1)
+        BatchShell(fd);
+    }
+    InteractiveShell();
+
+    /*    while (1 == 1)
     {
         printf("mysh>");
         fgets(buffer, 100, stdin);
@@ -212,7 +214,8 @@ int main(int argc, char *argv[])
         processCommand();
 
         printf("\n");
-    }
+    }*/
+
 
     return EXIT_SUCCESS;
 }
