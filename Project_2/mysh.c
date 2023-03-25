@@ -80,6 +80,7 @@ int getSizeOfCurrCmd()
 void printNextLine()
 {
     memset(buffer, 0, MAX_CMD_LENGTH);
+    memset(tokens,0,sizeof(tokens));
     if(!wstatus){
         strcpy(buffer, "mysh> ");
     }
@@ -141,79 +142,25 @@ void processCommand()
     dp = opendir(".");
     //struct dirent *dir;
 
-    if (strcmp(cmd, "cd") == 0)
-    {
-        addToPath(tokens[1], buffer);
-    }
-    else if (strcmp(cmd, "pwd") == 0)
-    {
-        getcwd(buffer, sizeof(buffer));
-        printf("the working directory is: %s\n", buffer);
-    }
-    else if (strcmp(cmd, "echo") == 0)
-    {
-        printf("%s\n", tokens[1]);
-    }
-    else if (strcmp(cmd, "ls") == 0)
-    {
-        int id = fork();
-        if(id == -1){perror("error forking process for ls command\n");}
-        wait(&wstatus);
-        wstatus = WIFEXITED(wstatus);
-        if(id == 0){
-            execlp("ls","ls",NULL);
-        }
-    }
-    else if (strcmp(cmd, "mkdir") == 0)
-    {
-        if(tokens[1] != NULL){
-            int permissions = -1;
-            if(tokens[2] != NULL){
-                int permissions = strtol(tokens[2],NULL,8);
-                if(permissions){
-                    wstatus = mkdir(tokens[1],permissions);
-                }
-                else{
-                    wstatus = 1;
-                    printf("invalid mode given\n");
-                }
-            }else{
-                permissions = 0777;
-                wstatus = mkdir(tokens[1],permissions);
-            }
-            if (wstatus != 0)
-            {
-                printf("Error creating directory");
-            }
-        }else{
-            wstatus = 1;
-            printf("Need to specify directory name\n");
-        }
-    }
-    else if(strcmp(cmd,"rmdir") == 0){
-        if(tokens[1] != NULL){
-            wstatus = rmdir(tokens[1]);
-            if(wstatus == 0){
-                printf("%s was removed.\n",tokens[1]);
-            }
+    if(cmd != NULL){
+        if (strcmp(cmd, "cd") == 0)
+        {
+            addToPath(tokens[1], buffer);
         }
         else{
-            printf("Need to specify directory name\n");
-            wstatus = 1;
+            int id = fork();
+            if(id == -1){perror("Error forking process\n");}
+            if(id == 0){
+                wstatus = execvp(cmd,tokens);
+                perror("Could not execute command");
+                exit(wstatus);
+            }
+            wait(&wstatus);
+            wstatus = WEXITSTATUS(wstatus);
         }
     }
-    else if (strcmp(cmd, "cat") == 0)
-    {
-        int id = fork();
-        if(id == -1){perror("error forking process for cat command\n");}
-        wait(&wstatus);
-        wstatus = WIFEXITED(wstatus);
-        if(id == 0){
-            execlp("cat","cat",tokens[1],NULL);
-        }
-    }
-    // add more commands that we can process
 }
+
 
 void CommandLoop(int fd)
 {
@@ -245,7 +192,6 @@ void InteractiveShell()
     strcpy(buffer, "Welcome to my Terminal\n");
     write(STDOUT_FILENO, buffer, getSizeOfCurrCmd());
     printNextLine();
-
     CommandLoop(STDIN_FILENO);
 }
 

@@ -1,0 +1,70 @@
+This is extraneous code from process command:
+
+else if (strcmp(cmd, "cat") == 0)
+    {
+        int id = fork();
+        if(id == -1){perror("error forking process for cat command\n");}
+        wait(&wstatus);
+        wstatus = WIFEXITED(wstatus);
+        if(id == 0){
+            execlp("cat","cat",tokens[1],NULL);
+        }
+    }
+    else if (strcmp(cmd, "ls") == 0)
+    {
+        int id = fork();
+        if(id == -1){perror("error forking process for ls command\n");}
+        wait(&wstatus);
+        wstatus = WIFEXITED(wstatus);
+        if(id == 0){
+            execvp("ls",tokens);
+        }
+    }
+    else if (strcmp(cmd, "mkdir") == 0)
+    {
+        if(tokens[1] != NULL){
+            int permissions = -1;
+            if(tokens[2] != NULL){
+                int permissions = strtol(tokens[2],NULL,8);
+                if(permissions){
+                    wstatus = mkdir(tokens[1],permissions);
+                }
+                else{
+                    wstatus = 1;
+                    printf("invalid mode given\n");
+                }
+            }else{
+                permissions = 0777;
+                wstatus = mkdir(tokens[1],permissions);
+            }
+            if (wstatus != 0)
+            {
+                printf("Error creating directory");
+            }
+        }else{
+            wstatus = 1;
+            printf("Need to specify directory name\n");
+        }
+    }
+    else if(strcmp(cmd,"rmdir") == 0){
+        if(tokens[1] != NULL){
+            wstatus = rmdir(tokens[1]);
+            if(wstatus == 0){
+                printf("%s was removed.\n",tokens[1]);
+            }
+        }
+        else{
+            printf("Need to specify directory name\n");
+            wstatus = 1;
+        }
+    }
+    else if (strcmp(cmd, "pwd") == 0)
+    {
+        wstatus = 0;
+        getcwd(buffer, sizeof(buffer));
+        printf("the working directory is: %s\n", buffer);
+    }
+    else if (strcmp(cmd, "echo") == 0)
+    {
+        printf("%s\n", tokens[1]);
+    }
