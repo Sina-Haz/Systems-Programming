@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #define MAX_CMD_LENGTH 100
 #define MAX_TOKENS 100
@@ -13,6 +14,7 @@
 static char buffer[MAX_CMD_LENGTH];
 static char *tokens[MAX_TOKEN_LENGTH];
 static char extraBuffer[EXTRA];
+int wstatus = 0;
 
 // Parses command found in Buffer. Sends tokens to tokens: array of strings
 void parseCommand()
@@ -78,7 +80,12 @@ int getSizeOfCurrCmd()
 void printNextLine()
 {
     memset(buffer, 0, MAX_CMD_LENGTH);
-    strcpy(buffer, "mysh> ");
+    if(!wstatus){
+        strcpy(buffer, "mysh> ");
+    }
+    else{
+        strcpy(buffer, "!mysh> ");
+    }
     write(STDOUT_FILENO, buffer, getSizeOfCurrCmd());
     memset(buffer, 0, MAX_CMD_LENGTH);
 }
@@ -115,12 +122,15 @@ void addToPath(char *command, char *buf)
 {
     if (strcmp(command, "..") == 0)
     {
-        chdir("..");
+        wstatus = chdir("..");
     }
     else
     {
         getcwd(buf, sizeof(buf));
-        chdir(command);
+        wstatus = chdir(command);
+        if(!wstatus){
+            printf("Error: %s does not exist\n",command);
+        }
     }
 }
 
@@ -129,11 +139,10 @@ void processCommand()
     char *cmd = tokens[0];
     DIR *dp;
     dp = opendir(".");
-    struct dirent *dir;
+    //struct dirent *dir;
 
     if (strcmp(cmd, "cd") == 0)
     {
-        // complete cd process
         addToPath(tokens[1], buffer);
     }
     else if (strcmp(cmd, "pwd") == 0)
@@ -149,28 +158,59 @@ void processCommand()
     {
         int id = fork();
         if(id == -1){perror("error forking process for ls command\n");}
-        wait(NULL);
+        wait(&wstatus);
+        wstatus = WIFEXITED(wstatus);
         if(id == 0){
             execlp("ls","ls",NULL);
         }
     }
     else if (strcmp(cmd, "mkdir") == 0)
     {
-        int result = mkdir(tokens[1]);
-        if (result != 0)
-        {
-            printf("Error creating directory");
+        if(tokens[1] != NULL){
+            int permissions = -1;
+            if(tokens[2] != NULL){
+                int permissions = strtol(tokens[2],NULL,8);
+                if(permissions){
+                    wstatus = mkdir(tokens[1],permissions);
+                }
+                else{
+                    wstatus = 1;
+                    printf("invalid mode given\n");
+                }
+            }else{
+                permissions = 0777;
+                wstatus = mkdir(tokens[1],permissions);
+            }
+            if (wstatus != 0)
+            {
+                printf("Error creating directory");
+            }
+        }else{
+            wstatus = 1;
+            printf("Need to specify directory name\n");
         }
     }
-    else if (strcmp(cmd, "cat"))
+    else if(strcmp(cmd,"rmdir") == 0){
+        if(tokens[1] != NULL){
+            wstatus = rmdir(tokens[1]);
+            if(wstatus == 0){
+                printf("%s was removed.\n",tokens[1]);
+            }
+        }
+        else{
+            printf("Need to specify directory name\n");
+            wstatus = 1;
+        }
+    }
+    else if (strcmp(cmd, "cat") == 0)
     {
         int id = fork();
         if(id == -1){perror("error forking process for cat command\n");}
-        wait(NULL);
+        wait(&wstatus);
+        wstatus = WIFEXITED(wstatus);
         if(id == 0){
             execlp("cat","cat",tokens[1],NULL);
         }
-
     }
     // add more commands that we can process
 }
@@ -229,15 +269,6 @@ int main(int argc, char *argv[])
     }
     InteractiveShell();
 
-    /*    while (1 == 1)
-    {
-        printf("mysh>");
-        fgets(buffer, 100, stdin);
-        parseCommand();
-        processCommand();
-
-        printf("\n");
-    }*/
 
 
     return EXIT_SUCCESS;
