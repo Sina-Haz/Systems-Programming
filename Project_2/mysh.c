@@ -147,9 +147,11 @@ void processCommand()
     }
     else if (strcmp(cmd, "ls") == 0)
     {
-        while ((dir = readdir(dp)) != NULL)
-        {
-            printf("%s\n", dir->d_name);
+        int id = fork();
+        if(id == -1){perror("error forking process for ls command\n");}
+        wait(NULL);
+        if(id == 0){
+            execlp("ls","ls",NULL);
         }
     }
     else if (strcmp(cmd, "mkdir") == 0)
@@ -162,6 +164,13 @@ void processCommand()
     }
     else if (strcmp(cmd, "cat"))
     {
+        int id = fork();
+        if(id == -1){perror("error forking process for cat command\n");}
+        wait(NULL);
+        if(id == 0){
+            execlp("cat","cat",tokens[1],NULL);
+        }
+
     }
     // add more commands that we can process
 }
