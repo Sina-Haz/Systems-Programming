@@ -58,12 +58,6 @@ else if (strcmp(cmd, "cat") == 0)
             wstatus = 1;
         }
     }
-    else if (strcmp(cmd, "pwd") == 0)
-    {
-        wstatus = 0;
-        getcwd(buffer, sizeof(buffer));
-        printf("the working directory is: %s\n", buffer);
-    }
     else if (strcmp(cmd, "echo") == 0)
     {
         printf("%s\n", tokens[1]);

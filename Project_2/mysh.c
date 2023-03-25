@@ -5,15 +5,19 @@
 #include <string.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include<libgen.h>
 
 #define MAX_CMD_LENGTH 100
 #define MAX_TOKENS 100
 #define MAX_TOKEN_LENGTH 100
+#define MAX_PATH_LENGTH 80
 #define EXTRA 1024
 
 static char buffer[MAX_CMD_LENGTH];
 static char *tokens[MAX_TOKEN_LENGTH];
 static char extraBuffer[EXTRA];
+static char pBuf[MAX_PATH_LENGTH];
+char* path;
 int wstatus = 0;
 
 // Parses command found in Buffer. Sends tokens to tokens: array of strings
@@ -63,17 +67,21 @@ void parseCommand()
     }
 }
 
+void updatePath(){
+    path = getcwd(pBuf,sizeof(pBuf));
+}
+
 // checks for null terminator in buffer
-int getSizeOfCurrCmd()
+int getSizeOfCurrCmd(char* buffer,int len)
 {
-    for (int i = 0; i < MAX_CMD_LENGTH; i++)
+    for (int i = 0; i < len; i++)
     {
         if (buffer[i] == '\0')
         {
             return i;
         }
     }
-    return MAX_CMD_LENGTH;
+    return len;
 }
 
 // Prints next line in interactive mode. Should recognize if previous command caused an error and add !
@@ -81,13 +89,15 @@ void printNextLine()
 {
     memset(buffer, 0, MAX_CMD_LENGTH);
     memset(tokens,0,sizeof(tokens));
+    char* working_directory = basename(path);
+    write(STDOUT_FILENO,working_directory,getSizeOfCurrCmd(working_directory,MAX_PATH_LENGTH));
     if(!wstatus){
-        strcpy(buffer, "mysh> ");
+        strcpy(buffer, " $: mysh> ");
     }
     else{
-        strcpy(buffer, "!mysh> ");
+        strcpy(buffer, " $: !mysh> ");
     }
-    write(STDOUT_FILENO, buffer, getSizeOfCurrCmd());
+    write(STDOUT_FILENO, buffer, getSizeOfCurrCmd(buffer,MAX_CMD_LENGTH));
     memset(buffer, 0, MAX_CMD_LENGTH);
 }
 
@@ -133,6 +143,7 @@ void addToPath(char *command, char *buf)
             printf("Error: %s does not exist\n",command);
         }
     }
+    updatePath();
 }
 
 void processCommand()
@@ -147,9 +158,16 @@ void processCommand()
         {
             addToPath(tokens[1], buffer);
         }
+        else if (strcmp(cmd, "pwd") == 0){
+            wstatus = 0;
+            getcwd(buffer, sizeof(buffer));
+            printf("the working directory is: %s\n", buffer);
+        }
         else{
             int id = fork();
-            if(id == -1){perror("Error forking process\n");}
+            if(id == -1){
+                perror("Error forking process\n");
+                exit(1);}
             if(id == 0){
                 wstatus = execvp(cmd,tokens);
                 perror("Could not execute command");
@@ -189,8 +207,10 @@ void CommandLoop(int fd)
 
 void InteractiveShell()
 {
+    path = malloc(sizeof(char)*MAX_CMD_LENGTH);
+    updatePath();
     strcpy(buffer, "Welcome to my Terminal\n");
-    write(STDOUT_FILENO, buffer, getSizeOfCurrCmd());
+    write(STDOUT_FILENO, buffer, getSizeOfCurrCmd(buffer,MAX_CMD_LENGTH));
     printNextLine();
     CommandLoop(STDIN_FILENO);
 }
