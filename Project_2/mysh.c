@@ -91,7 +91,7 @@ void printNextLine()
     memset(tokens,0,sizeof(tokens));
     char* working_directory = basename(path);
     write(STDOUT_FILENO,working_directory,getSizeOfCurrCmd(working_directory,MAX_PATH_LENGTH));
-    if(!wstatus){
+    if(wstatus == 0){
         strcpy(buffer, " $: mysh> ");
     }
     else{
@@ -112,6 +112,17 @@ void printCmds()
     }
 }
 
+//returns index within tokens where there is a '|'
+int searchForBar(int startInd){
+    char* curr = tokens[startInd];
+    while(curr != NULL){
+        if(strcmp(curr,"|") == 0){return startInd;}
+        startInd++;
+        curr = tokens[startInd];
+    }
+    return -1;
+}
+
 // Checks if the input command is longer than the buffer by setting fd to non-blocking mode and
 // trying to read any extra input.
 int CheckForExtraInput(int fd)
@@ -128,6 +139,20 @@ int CheckForExtraInput(int fd)
     return 0;
 }
 
+char** getArgsFromTokens(int startInd){
+    int num_tokens = 0;
+    while(tokens[startInd+num_tokens] != NULL && strcmp(tokens[startInd+num_tokens],"|") != 0){
+        num_tokens++;
+    }
+
+    char** args = malloc(sizeof(char*)*(num_tokens+1));
+    for(int i = 0;i < num_tokens;i++){
+        args[i] = strdup(tokens[startInd+i]);
+    }
+    args[num_tokens] = NULL;
+    return args;
+}
+
 // this will be used in conjunction with the cd call
 void addToPath(char *command, char *buf)
 {
@@ -139,24 +164,24 @@ void addToPath(char *command, char *buf)
     {
         getcwd(buf, sizeof(buf));
         wstatus = chdir(command);
-        if(!wstatus){
+        if(wstatus == -1){
             printf("Error: %s does not exist\n",command);
         }
     }
     updatePath();
 }
 
-void processCommand()
+void processCommand(char* cmd, int token_ind)
 {
-    char *cmd = tokens[0];
-    DIR *dp;
-    dp = opendir(".");
+    // DIR *dp;
+    // dp = opendir(".");
     //struct dirent *dir;
 
+    int BarInd = searchForBar(token_ind);
     if(cmd != NULL){
-        if (strcmp(cmd, "cd") == 0)
+        if(strcmp(cmd, "cd") == 0)
         {
-            addToPath(tokens[1], buffer);
+            addToPath(tokens[token_ind+1], buffer);
         }
         else if (strcmp(cmd, "pwd") == 0){
             wstatus = 0;
@@ -165,11 +190,12 @@ void processCommand()
         }
         else{
             int id = fork();
+            char** args = getArgsFromTokens(token_ind);
             if(id == -1){
-                perror("Error forking process\n");
+                perror("Error forking process");
                 exit(1);}
             if(id == 0){
-                wstatus = execvp(cmd,tokens);
+                wstatus = execvp(cmd,args);
                 perror("Could not execute command");
                 exit(wstatus);
             }
@@ -177,7 +203,24 @@ void processCommand()
             wstatus = WEXITSTATUS(wstatus);
         }
     }
+
+    if(BarInd != -1 && BarInd != 0){
+        processCommand(tokens[BarInd+1],BarInd+1);
+    }
 }
+
+/*                if(BarInd != -1){
+                    //want to only execute part of the tokens
+                    int num_tokens = BarInd - token_ind;
+                    char** newTokens = malloc(sizeof(char*)*num_tokens);
+                    for(int i = 0;i < num_tokens;i++){
+                        newTokens[i] = strdup(tokens[token_ind+i]);
+                    }
+                    wstatus = execvp(cmd,newTokens);
+                }else{
+                    wstatus = execvp(cmd,tokens);
+                }
+                */
 
 
 void CommandLoop(int fd)
@@ -199,7 +242,7 @@ void CommandLoop(int fd)
                 break;
             }
             parseCommand();
-            processCommand();
+            processCommand(tokens[0],0);
             printNextLine();
         }
     }
