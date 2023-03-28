@@ -22,12 +22,19 @@ int wstatus = 0;
 int saved_stdin;
 int saved_stdout;
 
+char *wildChar(int func, char *str);
+int wildCard(char **globs, char *start, char *end);
+
 
 // Parses command found in Buffer. Sends tokens to tokens: array of strings
 void saveStdFd(){
     saved_stdin = dup(STDIN_FILENO);
     saved_stdout = dup(STDOUT_FILENO);
 }
+
+void processCommand(char* cmd, int token_ind, int shouldHandleBar);
+void addToPath(char *command, char *buf);
+char** getArgsFromTokens(int startInd);
 
 void parseCommand()
 {
@@ -36,22 +43,28 @@ void parseCommand()
     int current_token_length = 0;
     int in_token = 0;
 
+    char **tempArr = malloc(sizeof(char *) * MAX_TOKENS);
+    for (int i = 0; i < MAX_TOKENS; i++)
+    {
+        tempArr[i] = malloc(sizeof(char) * MAX_TOKEN_LENGTH);
+    }
+
     while (i < MAX_CMD_LENGTH && buffer[i] != '\0')
     {
         if (buffer[i] == '>' || buffer[i] == '<' || buffer[i] == '|' || buffer[i] == ' ' || buffer[i] == '\n' || buffer[i] == '\t')
         {
             if (in_token)
             {
-                tokens[num_tokens][current_token_length] = '\0';
+                tempArr[num_tokens][current_token_length] = '\0';
                 num_tokens++;
                 current_token_length = 0;
                 in_token = 0;
             }
             if (buffer[i] == '>' || buffer[i] == '<' || buffer[i] == '|')
             {
-                tokens[num_tokens] = malloc(4 * sizeof(char));
-                tokens[num_tokens][0] = buffer[i];
-                tokens[num_tokens][1] = '\0';
+                tempArr[num_tokens] = malloc(4 * sizeof(char));
+                tempArr[num_tokens][0] = buffer[i];
+                tempArr[num_tokens][1] = '\0';
                 num_tokens++;
             }
         }
@@ -59,10 +72,11 @@ void parseCommand()
         {
             if (!in_token)
             {
-                tokens[num_tokens] = malloc(MAX_TOKEN_LENGTH * sizeof(char));
+                tempArr[num_tokens] = malloc(MAX_TOKEN_LENGTH * sizeof(char));
                 in_token = 1;
             }
-            tokens[num_tokens][current_token_length] = buffer[i];
+            tempArr[num_tokens][current_token_length] = buffer[i];
+
             current_token_length++;
         }
         i++;
@@ -70,9 +84,137 @@ void parseCommand()
 
     if (in_token)
     {
-        tokens[num_tokens][current_token_length] = '\0';
+        tempArr[num_tokens][current_token_length] = '\0';
         num_tokens++;
     }
+
+    // WILDCARD
+    // Plan: check if tokens[index] contains an asterik.  If it does, we can use
+    // my wildChar function to get the start and the end, and then my other wildcard function
+    // to make a 2D array of everything matching the wildcard
+
+    int tokInd = 0;
+    for (int k = 0; k < num_tokens; k++)
+    {
+        char *start = malloc(sizeof(char) * 50);
+        char *end = malloc(sizeof(char) * 50);
+        start = wildChar(0, tempArr[k]);
+        end = wildChar(1, tempArr[k]);
+        if (start == NULL && end == NULL)
+        {
+            // tokens[tokInd] = tempArr[k];
+            tokens[tokInd] = strdup(tempArr[k]);
+            tokInd++;
+        }
+        else
+        {
+            char **globs = malloc(sizeof(char *) * MAX_TOKENS);
+            for (int i = 0; i < MAX_TOKENS; i++)
+            {
+                globs[i] = malloc(sizeof(char) * MAX_TOKEN_LENGTH);
+            }
+            int lenWild = wildCard(globs, start, end);
+            // globs = realloc(globs, lenWild * sizeof(char *));
+            for (int i = 0; i < lenWild; i++)
+            {
+                tokens[tokInd] = strdup(globs[i]);
+                tokInd++;
+            }
+            for(int i = 0; i < MAX_TOKENS; i++) {
+                free(globs[i]);
+            }
+            free(globs);
+        }
+        free(start);
+        free(end);
+    }
+
+    for (int i = 0; i < 100; i++)
+    {
+        free(tempArr[i]);
+    }
+    free(tempArr);
+
+}
+
+
+// this is the first of 2 functions used in dealing with wildcards
+// this function takes in a string and a number 0 or 1.  We input 0 when we want to return everything before the
+// asterik and 1 when we want everything after
+// the string we insert is teh string containing the asterik taht we want to break in two
+char *wildChar(int func, char *str)
+{
+    // if func is 0, we want before asterik, if it's 1, we want after asterik;
+    int astIndex = -1;
+    char *output;
+    for (int i = 0; i < strlen(str); i++)
+    {
+        if (str[i] == '*')
+        {
+            astIndex = i;
+        }
+    }
+    if ((astIndex == -1) || (astIndex == 0 && func == 0))
+    {
+        return NULL;
+    }
+    // substr = strndup(str + 7, 5);  // Get a substring starting at position 7 with length 5
+    if (func == 0)
+    {
+        output = strndup(str, astIndex); // Get a substring starting at position 7 with length 5
+    }
+    else
+    {
+        output = strndup(str + astIndex + 1, strlen(str) - astIndex);
+    }
+
+    return output;
+}
+
+// this is the second of two wildcard functions.  This one does the bulk of the work.  It takes in
+// a char* representing the start of the file name and a char* representing the end of the file name, and returns
+// a 2d array of everything in the directory matching those attributes.  If start is NULL, or end is NULL< it still
+// serves the same purpose
+int wildCard(char **globs, char *start, char *end)
+{
+    DIR *d;
+    struct dirent *dir;
+
+    int file_count = 0;
+    //int length = 0;
+
+    d = opendir(".");
+
+    if (d)
+    {
+        while ((dir = readdir(d)) != NULL)
+        {
+            if (start == NULL)
+            {
+                if (strstr(dir->d_name, end))
+                {
+                    strncpy(globs[file_count], dir->d_name, 100);
+                    file_count++;
+                    if (file_count >= 100)
+                    {
+                        printf("Maximum number of files exceeded.\n");
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                int n = strlen(start);
+                if ((strncmp(start, dir->d_name, n) == 0) && (strstr(dir->d_name, end)))
+                {
+                    strncpy(globs[file_count], dir->d_name, 100);
+                    file_count++;
+                }
+            }
+        }
+        closedir(d);
+    }
+    return file_count;
 }
 
 void updatePath(){
@@ -150,7 +292,7 @@ int HandleSymbol(int symbolInd){
         return -1;
      }
      else if(strcmp(tokens[symbolInd],">") == 0){
-        int fd = open(tokens[symbolInd+1], O_WRONLY | O_CREAT, 0777);
+        int fd = open(tokens[symbolInd+1], O_WRONLY | O_CREAT, 0640);
         int fd2 = dup2(fd,STDOUT_FILENO);
         close(fd);
         return fd2;
@@ -162,6 +304,47 @@ int HandleSymbol(int symbolInd){
         return fd2;
     }
     return -1;
+}
+
+int HandleBar(int BarInd, int CurrInd){
+    if(BarInd != 0 && BarInd != -1){
+        int fds[2];
+        if(pipe(fds) == -1){
+            perror("pipe");
+            return -1;
+        }
+        int pid = fork();
+        if(pid == -1){
+            perror("fork");
+            return -1;
+        }
+        
+        if(pid == 0){
+            //child process should run the 2nd sub-commmand
+            close(fds[1]);
+            if(dup2(fds[0],STDIN_FILENO) == -1){perror("dup error");}
+            processCommand(tokens[BarInd+1],BarInd+1,1);
+            close(fds[0]);
+            exit(wstatus);
+        }
+        else{
+            //parent process runs the 1st sub-command
+            close(fds[0]);
+            if(dup2(fds[1],STDOUT_FILENO) == -1){perror("dup error");
+            return -1;}
+            processCommand(tokens[CurrInd],CurrInd,0);
+            wait(&wstatus);
+            wstatus = WEXITSTATUS(wstatus);
+            close(fds[1]);
+            dup2(saved_stdin,STDIN_FILENO);
+            dup2(saved_stdout,STDOUT_FILENO);
+            return 1;
+        }
+    }
+    else{
+        return -1;
+    }
+
 }
 
 // Checks if the input command is longer than the buffer by setting fd to non-blocking mode and
@@ -216,14 +399,16 @@ void addToPath(char *command, char *buf)
     updatePath();
 }
 
-void processCommand(char* cmd, int token_ind)
+void processCommand(char* cmd, int token_ind, int shouldHandleBar)
 {
-    // DIR *dp;
-    // dp = opendir(".");
-    //struct dirent *dir;
     int symbol_handling = 0;
     int symbolInd = searchForSymbol(token_ind);
     int BarInd = searchForBar(token_ind);
+    if (BarInd >= 0 && shouldHandleBar == 1){
+        if(HandleBar(BarInd,token_ind) == 1){
+            return;
+        }
+    }
 
     if(symbolInd != -1){
         symbol_handling = HandleSymbol(symbolInd);
@@ -254,6 +439,9 @@ void processCommand(char* cmd, int token_ind)
             wait(&wstatus);
             wstatus = WEXITSTATUS(wstatus);
         }
+    }else{
+        perror("error processing command");
+        wstatus = 1;
     }
 
     if(symbolInd != -1 && symbol_handling != -1){
@@ -265,9 +453,9 @@ void processCommand(char* cmd, int token_ind)
         }
     }
 
-    if(BarInd != -1 && BarInd != 0){
-        processCommand(tokens[BarInd+1],BarInd+1);
-    }
+    // if(BarInd != -1 && BarInd != 0){
+    //     processCommand(tokens[BarInd+1],BarInd+1,1);
+    // }
 
 }
 
@@ -291,8 +479,14 @@ void CommandLoop(int fd)
                 break;
             }
             parseCommand();
-            processCommand(tokens[0],0);
-            printNextLine();
+            processCommand(tokens[0],0,1);
+            //printNextLine();
+            if(bytes_read != 0){
+                printNextLine();
+            }
+            else{
+                break;
+            }
         }
     }
 }
