@@ -463,32 +463,35 @@ void processCommand(char* cmd, int token_ind, int shouldHandleBar)
 
 void CommandLoop(int fd)
 {
-    ssize_t bytes_read;
+    //ssize_t bytes_read;
+    char* ptr;
+    int ExtraInput = 0;
+    if(fd == STDIN_FILENO){
+        ExtraInput = CheckForExtraInput(fd);
+    }
+    FILE* fp = fdopen(fd,"r");
     while (1)
     {
-        bytes_read = read(fd, buffer, MAX_CMD_LENGTH);
-        if (bytes_read == -1 || CheckForExtraInput(fd) == 1)
+        ptr = fgets(buffer,MAX_CMD_LENGTH,fp);
+        if (ExtraInput == 1)
         {
             perror("Error with Reading command\n");
-            exit(1);
+            printNextLine();
+            continue;;
         }
         else
         {
-            if (strcmp(buffer, "exit\n") == 0)
+            if (strcmp(buffer, "exit\n") == 0 || ptr == NULL)
             {
                 break;
             }
             parseCommand();
+            //printCmds();
             processCommand(tokens[0],0,1);
-            //printNextLine();
-            if(bytes_read != 0){
-                printNextLine();
-            }
-            else{
-                break;
-            }
+            printNextLine();
         }
     }
+    fclose(fp);
 }
 
 void InteractiveShell()
@@ -503,7 +506,10 @@ void InteractiveShell()
 
 void BatchShell(int fd)
 {
-    printf("Mashallah we are in the bash shell!\n");
+    path = malloc(sizeof(char)*MAX_CMD_LENGTH);
+    updatePath();
+    printNextLine();
+    CommandLoop(fd);
 }
 
 int main(int argc, char *argv[])
