@@ -18,6 +18,7 @@ static char *tokens[MAX_TOKEN_LENGTH];
 static char extraBuffer[EXTRA];
 static char pBuf[MAX_PATH_LENGTH];
 char* path;
+char *homeDir;
 int wstatus = 0;
 int saved_stdin;
 int saved_stdout;
@@ -31,6 +32,24 @@ int wildCard(char **globs, char *start, char *end);
 void saveStdFd(){
     saved_stdin = dup(STDIN_FILENO);
     saved_stdout = dup(STDOUT_FILENO);
+}
+
+void setHomeDir(char *homePath)
+{
+    homeDir = homePath;
+}
+
+char *replaceWithHome(char *word)
+{
+    if (word[0] == '~')
+    {
+        char *newWord = malloc(sizeof(char) * 100);
+        strcat(newWord, homeDir);
+        strcat(newWord, word + 1);
+        word = strdup(newWord);
+    }
+
+    return word;
 }
 
 void processCommand(char* cmd, int token_ind, int shouldHandleBar);
@@ -128,6 +147,17 @@ void parseCommand()
         }
         free(start);
         free(end);
+    }
+
+    for (int k = 0; k < num_tokens; k++)
+    {
+        if (tokens[k][0] == '~')
+        {
+            char *tempWord = malloc(sizeof(char) * 100);
+            tempWord = replaceWithHome(tokens[k]);
+            tokens[k] = strdup(tempWord);
+            free(tempWord);
+        }
     }
 
     for (int i = 0; i < 100; i++)
@@ -276,6 +306,120 @@ int searchForBar(int startInd){
     return -1;
 }
 
+int check(char *path, char *file_name)
+{
+    // printf("%s = path and %s = file_name\n", path, file_name);
+    char new_path[100];
+    strcat(new_path, path); // problem line
+    strcat(new_path, file_name);
+
+    struct stat st;
+    int result = stat(new_path, &st);
+    if (result == 0)
+    {
+        memset(new_path, 0, 100);
+        return 1;
+    }
+    memset(new_path, 0, 100);
+    return 0;
+}
+
+char *search(char *tok_to_find)
+{
+    // char *currPath = "usr/local/sbin";
+    char *currPath = "usr/local/sbin";
+    // doesnt work if it isnt the first one it checks, wil come back
+    char *new_tok = malloc(sizeof(char) * 100);
+    strcpy(new_tok, "/");
+    strcat(new_tok, tok_to_find);
+    tok_to_find = strdup(new_tok);
+    free(new_tok);
+    int res;
+    res = check(currPath, tok_to_find);
+
+    
+
+    if (res == 1)
+    {
+        char *ansPath = malloc(sizeof(char) * 100);
+        strcpy(ansPath, "./");
+        strcat(ansPath, currPath);
+        strcat(ansPath, tok_to_find);
+        currPath = strdup(ansPath);
+        free(ansPath);
+        return currPath;
+    }
+
+    //
+    currPath = strdup("usr/local/bin");
+
+    res = check(currPath, tok_to_find);
+    if (res == 1)
+    {
+        char *ansPath = malloc(sizeof(char) * 100);
+        strcpy(ansPath, "./");
+        strcat(ansPath, currPath);
+        strcat(ansPath, tok_to_find);
+        currPath = strdup(ansPath);
+        free(ansPath);
+        return currPath;
+    }
+    //
+    currPath = strdup("usr/sbin");
+    res = check(currPath, tok_to_find);
+    if (res == 1)
+    {
+        char *ansPath = malloc(sizeof(char) * 100);
+        strcpy(ansPath, "./");
+        strcat(ansPath, currPath);
+        strcat(ansPath, tok_to_find);
+        currPath = strdup(ansPath);
+        free(ansPath);
+        return currPath;
+    }
+    //
+    currPath = strdup("usr/bin");
+    res = check(currPath, tok_to_find);
+    if (res == 1)
+    {
+        char *ansPath = malloc(sizeof(char) * 100);
+        strcpy(ansPath, "./");
+        strcat(ansPath, currPath);
+        strcat(ansPath, tok_to_find);
+        currPath = strdup(ansPath);
+        free(ansPath);
+        return currPath;
+    }
+    //
+    currPath = strdup("sbin");
+    res = check(currPath, tok_to_find);
+    if (res == 1)
+    {
+        char *ansPath = malloc(sizeof(char) * 100);
+        strcpy(ansPath, "./");
+        strcat(ansPath, currPath);
+        strcat(ansPath, tok_to_find);
+        currPath = strdup(ansPath);
+        free(ansPath);
+        return currPath;
+    }
+    //
+    currPath = strdup("bin");
+    res = check(currPath, tok_to_find);
+    if (res == 1)
+    {
+        char *ansPath = malloc(sizeof(char) * 100);
+        strcpy(ansPath, "./");
+        strcat(ansPath, currPath);
+        strcat(ansPath, tok_to_find);
+        currPath = strdup(ansPath);
+        free(ansPath);
+        return currPath;
+    }
+
+    return NULL;
+}
+
 //searches tokens for < or > symbols
 int searchForSymbol(int startInd){
     char* curr = tokens[startInd];
@@ -367,16 +511,38 @@ int CheckForExtraInput(int fd)
 }
 
 char** getArgsFromTokens(int startInd){
-    int num_tokens = 0;
-    while(tokens[startInd+num_tokens] != NULL && strcmp(tokens[startInd+num_tokens],"|") != 0 && 
-    strcmp(tokens[startInd+num_tokens],">") != 0 && strcmp(tokens[startInd+num_tokens],"<") != 0){
+   int num_tokens = 0;
+    while (tokens[startInd + num_tokens] != NULL && strcmp(tokens[startInd + num_tokens], "|") != 0 &&
+           strcmp(tokens[startInd + num_tokens], ">") != 0 && strcmp(tokens[startInd + num_tokens], "<") != 0)
+    {
         num_tokens++;
     }
 
-    char** args = malloc(sizeof(char*)*(num_tokens+1));
+    char **args = malloc(sizeof(char *) * (num_tokens + 1));
     int token_count = 0;
-    for(int i = 0;i < num_tokens;i++){
-        args[i] = strdup(tokens[startInd+token_count]);
+    for (int i = 0; i < num_tokens; i++)
+    {
+        args[i] = strdup(tokens[startInd + i]);
+        if((strcmp(tokens[0], "ls") != 0) && (strcmp(tokens[0], "-l") != 0)) {
+            if(args[0][0] == '/') {
+            char *temp = malloc(sizeof(char)*100);
+            strcpy(temp, ".");
+            strcat(temp, args[0]);
+            args[0] = strdup(temp);
+            free(temp); 
+        }
+        else if ((strlen(args[0]) > 1) && (args[0][0] != '.'))
+        {
+           // we need to add ./ to the start
+            char *temp = malloc(sizeof(char)*100);
+            strcpy(temp, "./");
+            strcat(temp, args[0]);
+            args[0] = strdup(temp);
+            free(temp); 
+        }
+        }
+        
+
         token_count++;
     }
     args[num_tokens] = NULL;
@@ -402,6 +568,21 @@ void addToPath(char *command, char *buf)
     updatePath();
 }
 
+void listStuff() {
+    DIR *dir;
+    struct dirent *entry;
+    dir = opendir(".");
+    if (dir == NULL) {
+        perror("opendir");
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        printf("%s\n", entry->d_name);
+    }
+
+    closedir(dir);
+}
+
 void processCommand(char* cmd, int token_ind, int shouldHandleBar)
 {
     int symbol_handling = 0;
@@ -421,38 +602,115 @@ void processCommand(char* cmd, int token_ind, int shouldHandleBar)
     if(cmd != NULL && symbol_handling != -1){
         if(strcmp(cmd, "cd") == 0)
         {
-            addToPath(tokens[token_ind+1], buffer);
+            if (tokens[1] == NULL)
+            {
+                char *home = getenv("HOME");
+                setHomeDir(home); // sets a global variable that we can use to set home directory
+                chdir(home);
+                updatePath();
+            }
+            else
+            {
+                addToPath(tokens[token_ind + 1], buffer);
+            }
         }
         else if (strcmp(cmd, "pwd") == 0){
             wstatus = 0;
             getcwd(buffer, sizeof(buffer));
             printf("the working directory is: %s\n", buffer);
         }
+        else if (strcmp(cmd, "mkdir") == 0) {
+            int result = mkdir(tokens[1], S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+            if(result != 0) {
+                printf("Error making directoy");
+            }
+        }
+        else if (strcmp(cmd, "echo") == 0)
+        {
+            int ind = 1;
+            while(tokens[ind] != NULL) {
+                printf("%s ", tokens[ind]);
+                ind++;
+            }
+            printf("\n");
+        }
         else{
             int id = fork();
-            char** args = getArgsFromTokens(token_ind);
-            if(id == -1){
+            char **args = getArgsFromTokens(token_ind);
+            
+            if (id == -1)
+            {
                 perror("Error forking process");
-                exit(1);}
-            if(id == 0){
-                wstatus = execvp(cmd,args);
+                exit(1);
+            }
+            if (id == 0)
+            {
+
+                // testting to make sure I know how stat works
+                
+                struct stat st;
+
+                int result = stat(cmd, &st);
+
+                if (result != 0 && (strcmp(cmd, "ls") != 0))
+                {
+                    char *new_cmd = malloc(sizeof(char)*100);
+                    new_cmd = search(cmd);
+                    if(new_cmd == NULL) {
+                        perror("Could not execute command");
+                        exit(wstatus);
+                    }
+
+                    args[0] = strdup(new_cmd);
+                    int y = execvp(args[0], args);
+
+                    if (y == -1)
+                    {
+                        perror("Could not execute command");
+                        exit(wstatus);
+                    }
+                    // execvp(cmd, args);
+                }
+
+                if (cmd == NULL)
+                {
+                    perror("Could not execute command");
+                    exit(wstatus);
+                }
+
+                // basically, if this is going to fail, we have to try the check function
+                
+                int x = execvp(args[0], args);
+
+                if (x == -1)
+                {
+                    perror("Could not execute command");
+                    exit(wstatus);
+                }
+
+                // wstatus = execvp(cmd, args);
                 perror("Could not execute command");
                 exit(wstatus);
             }
             wait(&wstatus);
             wstatus = WEXITSTATUS(wstatus);
         }
-    }else if(symbol_handling == -1){
+    }
+    else
+    {
         perror("error processing command");
         wstatus = 1;
     }
 
-    if(symbolInd != -1 && symbol_handling != -1){
-        if(strcmp(tokens[symbolInd],">") == 0){
-            dup2(saved_stdout,STDOUT_FILENO);
+    if (symbolInd != -1 && symbol_handling != -1)
+    {
+        if (strcmp(tokens[symbolInd], ">") == 0)
+        {
+            dup2(saved_stdout, STDOUT_FILENO);
         }
-        else if(strcmp(tokens[symbolInd],"<") == 0){
-            dup2(saved_stdin,STDIN_FILENO);
+        else if (strcmp(tokens[symbolInd], "<") == 0)
+        {
+            dup2(saved_stdin, STDIN_FILENO);
         }
     }
 
