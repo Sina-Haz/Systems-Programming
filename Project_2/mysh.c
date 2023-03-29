@@ -602,7 +602,7 @@ void processCommand(char* cmd, int token_ind, int shouldHandleBar)
     if(cmd != NULL && symbol_handling != -1){
         if(strcmp(cmd, "cd") == 0)
         {
-            if (tokens[1] == NULL)
+            if (tokens[token_ind+1] == NULL)
             {
                 char *home = getenv("HOME");
                 setHomeDir(home); // sets a global variable that we can use to set home directory
@@ -625,15 +625,15 @@ void processCommand(char* cmd, int token_ind, int shouldHandleBar)
                 printf("Error making directoy");
             }
         }
-        else if (strcmp(cmd, "echo") == 0)
-        {
-            int ind = 1;
-            while(tokens[ind] != NULL) {
-                printf("%s ", tokens[ind]);
-                ind++;
-            }
-            printf("\n");
-        }
+        // else if (strcmp(cmd, "echo") == 0)
+        // {
+        //     int ind = 1;
+        //     while(tokens[ind] != NULL) {
+        //         printf("%s ", tokens[ind]);
+        //         ind++;
+        //     }
+        //     printf("\n");
+        // }
         else{
             int id = fork();
             char **args = getArgsFromTokens(token_ind);
@@ -696,9 +696,9 @@ void processCommand(char* cmd, int token_ind, int shouldHandleBar)
             wstatus = WEXITSTATUS(wstatus);
         }
     }
-    else
+    else if(symbol_handling == -1)
     {
-        perror("error processing command");
+        perror("error processing symbol command");
         wstatus = 1;
     }
 
@@ -740,12 +740,13 @@ void CommandLoop(int fd)
             printNextLine();
             continue;
         }
-        else
-        {
-            if (strcmp(buffer, "exit\n") == 0 || ptr == NULL)
-            {
-                break;
-            }
+        else if(strcmp(buffer, "exit\n") == 0 || ptr == NULL){
+            break;
+        }
+        else if(strcmp(buffer,"\n") == 0){
+            printNextLine();
+            continue;
+        }else{
             parseCommand();
             processCommand(tokens[0],0,1);
             printNextLine();

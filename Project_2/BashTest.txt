@@ -1,6 +1,4 @@
 ls -l
 cat foo
 cd ../..
-
-mkfifo fifo | open fifo | pwd
-rm fifo > bar | bar < foo
+pwd
