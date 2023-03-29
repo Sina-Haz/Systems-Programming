@@ -21,6 +21,7 @@ char* path;
 int wstatus = 0;
 int saved_stdin;
 int saved_stdout;
+int global_fd;
 
 char *wildChar(int func, char *str);
 int wildCard(char **globs, char *start, char *end);
@@ -239,16 +240,18 @@ void printNextLine()
 {
     memset(buffer, 0, MAX_CMD_LENGTH);
     memset(tokens,0,sizeof(tokens));
-    char* working_directory = basename(path);
-    write(STDOUT_FILENO,working_directory,getSizeOfCurrCmd(working_directory,MAX_PATH_LENGTH));
-    if(wstatus == 0){
-        strcpy(buffer, " $: mysh> ");
+    if(global_fd == STDIN_FILENO){
+        char* working_directory = basename(path);
+        write(STDOUT_FILENO,working_directory,getSizeOfCurrCmd(working_directory,MAX_PATH_LENGTH));
+        if(wstatus == 0){
+            strcpy(buffer, " $: mysh> ");
+        }
+        else{
+            strcpy(buffer, " $: !mysh> ");
+        }
+        write(STDOUT_FILENO, buffer, getSizeOfCurrCmd(buffer,MAX_CMD_LENGTH));
+        memset(buffer, 0, MAX_CMD_LENGTH);
     }
-    else{
-        strcpy(buffer, " $: !mysh> ");
-    }
-    write(STDOUT_FILENO, buffer, getSizeOfCurrCmd(buffer,MAX_CMD_LENGTH));
-    memset(buffer, 0, MAX_CMD_LENGTH);
 }
 
 // Helper method to print tokens after parsing command
@@ -439,7 +442,7 @@ void processCommand(char* cmd, int token_ind, int shouldHandleBar)
             wait(&wstatus);
             wstatus = WEXITSTATUS(wstatus);
         }
-    }else{
+    }else if(symbol_handling == -1){
         perror("error processing command");
         wstatus = 1;
     }
@@ -477,7 +480,7 @@ void CommandLoop(int fd)
         {
             perror("Error with Reading command\n");
             printNextLine();
-            continue;;
+            continue;
         }
         else
         {
@@ -486,18 +489,19 @@ void CommandLoop(int fd)
                 break;
             }
             parseCommand();
-            //printCmds();
             processCommand(tokens[0],0,1);
             printNextLine();
         }
     }
     fclose(fp);
+    close(fd);
 }
 
 void InteractiveShell()
 {
     path = malloc(sizeof(char)*MAX_CMD_LENGTH);
     updatePath();
+    global_fd = STDIN_FILENO;
     strcpy(buffer, "Welcome to my Terminal\n");
     write(STDOUT_FILENO, buffer, getSizeOfCurrCmd(buffer,MAX_CMD_LENGTH));
     printNextLine();
@@ -508,6 +512,7 @@ void BatchShell(int fd)
 {
     path = malloc(sizeof(char)*MAX_CMD_LENGTH);
     updatePath();
+    global_fd = fd;
     printNextLine();
     CommandLoop(fd);
 }
