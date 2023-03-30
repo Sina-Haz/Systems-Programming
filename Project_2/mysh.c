@@ -5,7 +5,9 @@
 #include <string.h>
 #include <dirent.h>
 #include <sys/stat.h>
-#include<libgen.h>
+#include <libgen.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define MAX_CMD_LENGTH 100
 #define MAX_TOKENS 100
@@ -17,8 +19,9 @@ static char buffer[MAX_CMD_LENGTH];
 static char *tokens[MAX_TOKEN_LENGTH];
 static char extraBuffer[EXTRA];
 static char pBuf[MAX_PATH_LENGTH];
-char* path;
+char *path;
 char *homeDir;
+int numArgs = 0;
 int wstatus = 0;
 int saved_stdin;
 int saved_stdout;
@@ -27,9 +30,9 @@ int global_fd;
 char *wildChar(int func, char *str);
 int wildCard(char **globs, char *start, char *end);
 
-
 // Parses command found in Buffer. Sends tokens to tokens: array of strings
-void saveStdFd(){
+void saveStdFd()
+{
     saved_stdin = dup(STDIN_FILENO);
     saved_stdout = dup(STDOUT_FILENO);
 }
@@ -41,6 +44,7 @@ void setHomeDir(char *homePath)
 
 char *replaceWithHome(char *word)
 {
+    // MUST USE CD FIRST BEFORE YOU CAN USE THIS
     if (word[0] == '~')
     {
         char *newWord = malloc(sizeof(char) * 100);
@@ -52,9 +56,9 @@ char *replaceWithHome(char *word)
     return word;
 }
 
-void processCommand(char* cmd, int token_ind, int shouldHandleBar);
+void processCommand(char *cmd, int token_ind, int shouldHandleBar);
 void addToPath(char *command, char *buf);
-char** getArgsFromTokens(int startInd);
+char **getArgsFromTokens1(int startInd);
 
 void parseCommand()
 {
@@ -140,7 +144,8 @@ void parseCommand()
                 tokens[tokInd] = strdup(globs[i]);
                 tokInd++;
             }
-            for(int i = 0; i < MAX_TOKENS; i++) {
+            for (int i = 0; i < MAX_TOKENS; i++)
+            {
                 free(globs[i]);
             }
             free(globs);
@@ -165,9 +170,7 @@ void parseCommand()
         free(tempArr[i]);
     }
     free(tempArr);
-
 }
-
 
 // this is the first of 2 functions used in dealing with wildcards
 // this function takes in a string and a number 0 or 1.  We input 0 when we want to return everything before the
@@ -212,7 +215,7 @@ int wildCard(char **globs, char *start, char *end)
     struct dirent *dir;
 
     int file_count = 0;
-    //int length = 0;
+    // int length = 0;
 
     d = opendir(".");
 
@@ -248,12 +251,13 @@ int wildCard(char **globs, char *start, char *end)
     return file_count;
 }
 
-void updatePath(){
-    path = getcwd(pBuf,sizeof(pBuf));
+void updatePath()
+{
+    path = getcwd(pBuf, sizeof(pBuf));
 }
 
 // checks for null terminator in buffer
-int getSizeOfCurrCmd(char* buffer,int len)
+int getSizeOfCurrCmd(char *buffer, int len)
 {
     for (int i = 0; i < len; i++)
     {
@@ -269,17 +273,20 @@ int getSizeOfCurrCmd(char* buffer,int len)
 void printNextLine()
 {
     memset(buffer, 0, MAX_CMD_LENGTH);
-    memset(tokens,0,sizeof(tokens));
-    if(global_fd == STDIN_FILENO){
-        char* working_directory = basename(path);
-        write(STDOUT_FILENO,working_directory,getSizeOfCurrCmd(working_directory,MAX_PATH_LENGTH));
-        if(wstatus == 0){
+    memset(tokens, 0, sizeof(tokens));
+    if (global_fd == STDIN_FILENO)
+    {
+        char *working_directory = basename(path);
+        write(STDOUT_FILENO, working_directory, getSizeOfCurrCmd(working_directory, MAX_PATH_LENGTH));
+        if (wstatus == 0)
+        {
             strcpy(buffer, " $: mysh> ");
         }
-        else{
+        else
+        {
             strcpy(buffer, " $: !mysh> ");
         }
-        write(STDOUT_FILENO, buffer, getSizeOfCurrCmd(buffer,MAX_CMD_LENGTH));
+        write(STDOUT_FILENO, buffer, getSizeOfCurrCmd(buffer, MAX_CMD_LENGTH));
         memset(buffer, 0, MAX_CMD_LENGTH);
     }
 }
@@ -295,11 +302,16 @@ void printCmds()
     }
 }
 
-//returns index within tokens where there is a '|'
-int searchForBar(int startInd){
-    char* curr = tokens[startInd];
-    while(curr != NULL){
-        if(strcmp(curr,"|") == 0){return startInd;}
+// returns index within tokens where there is a '|'
+int searchForBar(int startInd)
+{
+    char *curr = tokens[startInd];
+    while (curr != NULL)
+    {
+        if (strcmp(curr, "|") == 0)
+        {
+            return startInd;
+        }
         startInd++;
         curr = tokens[startInd];
     }
@@ -336,8 +348,6 @@ char *search(char *tok_to_find)
     free(new_tok);
     int res;
     res = check(currPath, tok_to_find);
-
-    
 
     if (res == 1)
     {
@@ -420,78 +430,99 @@ char *search(char *tok_to_find)
     return NULL;
 }
 
-//searches tokens for < or > symbols
-int searchForSymbol(int startInd){
-    char* curr = tokens[startInd];
+// searches tokens for < or > symbols
+int searchForSymbol(int startInd)
+{
+    char *curr = tokens[startInd];
 
-    //searches for symbol until hits a NULL or |
-    while(curr != NULL && strcmp(curr,"|") != 0){
-        if(strcmp(curr,">") == 0 || strcmp(curr,"<") == 0){return startInd;}
+    // searches for symbol until hits a NULL or |
+    while (curr != NULL && strcmp(curr, "|") != 0)
+    {
+        if (strcmp(curr, ">") == 0 || strcmp(curr, "<") == 0)
+        {
+            return startInd;
+        }
         startInd++;
         curr = tokens[startInd];
     }
     return -1;
 }
 
-int HandleSymbol(int symbolInd){
-    if(symbolInd == 0 || tokens[symbolInd + 1] == NULL || strcmp(tokens[symbolInd + 1],">") == 0 ||
-     strcmp(tokens[symbolInd+1],"<") == 0 || strcmp(tokens[symbolInd+1],"|") == 0){
+int HandleSymbol(int symbolInd)
+{
+    if (symbolInd == 0 || tokens[symbolInd + 1] == NULL || strcmp(tokens[symbolInd + 1], ">") == 0 ||
+        strcmp(tokens[symbolInd + 1], "<") == 0 || strcmp(tokens[symbolInd + 1], "|") == 0)
+    {
         return -1;
-     }
-     else if(strcmp(tokens[symbolInd],">") == 0){
-        int fd = open(tokens[symbolInd+1], O_WRONLY | O_CREAT, 0640);
-        int fd2 = dup2(fd,STDOUT_FILENO);
+    }
+    else if (strcmp(tokens[symbolInd], ">") == 0)
+    {
+        int fd = open(tokens[symbolInd + 1], O_WRONLY | O_CREAT, 0640);
+        int fd2 = dup2(fd, STDOUT_FILENO);
         close(fd);
         return fd2;
     }
-    else{
-        int fd = open(tokens[symbolInd+1], O_RDONLY);
-        int fd2 = dup2(fd,STDIN_FILENO);
+    else
+    {
+        int fd = open(tokens[symbolInd + 1], O_RDONLY);
+        int fd2 = dup2(fd, STDIN_FILENO);
         close(fd);
         return fd2;
     }
     return -1;
 }
 
-int HandleBar(int BarInd, int CurrInd){
-    if(BarInd != 0 && BarInd != -1){
+int HandleBar(int BarInd, int CurrInd)
+{
+    if (BarInd != 0 && BarInd != -1)
+    {
         int fds[2];
-        if(pipe(fds) == -1){
+        if (pipe(fds) == -1)
+        {
             perror("pipe");
             return -1;
         }
         int pid = fork();
-        if(pid == -1){
+        if (pid == -1)
+        {
             perror("fork");
             return -1;
         }
-        
-        if(pid == 0){
-            //child process should run the 2nd sub-commmand
+
+        if (pid == 0)
+        {
+            // child process should run the 2nd sub-commmand
             close(fds[1]);
-            if(dup2(fds[0],STDIN_FILENO) == -1){perror("dup error");}
-            processCommand(tokens[BarInd+1],BarInd+1,1);
+            if (dup2(fds[0], STDIN_FILENO) == -1)
+            {
+                perror("dup error");
+            }
+            processCommand(tokens[BarInd + 1], BarInd + 1, 1);
             close(fds[0]);
             exit(wstatus);
         }
-        else{
-            //parent process runs the 1st sub-command
+        else
+        {
+            // parent process runs the 1st sub-command
             close(fds[0]);
-            if(dup2(fds[1],STDOUT_FILENO) == -1){perror("dup error");
-            return -1;}
-            processCommand(tokens[CurrInd],CurrInd,0);
+            if (dup2(fds[1], STDOUT_FILENO) == -1)
+            {
+                perror("dup error");
+                return -1;
+            }
+            processCommand(tokens[CurrInd], CurrInd, 0);
             wait(&wstatus);
             wstatus = WEXITSTATUS(wstatus);
             close(fds[1]);
-            dup2(saved_stdin,STDIN_FILENO);
-            dup2(saved_stdout,STDOUT_FILENO);
+            dup2(saved_stdin, STDIN_FILENO);
+            dup2(saved_stdout, STDOUT_FILENO);
             return 1;
         }
     }
-    else{
+    else
+    {
         return -1;
     }
-
 }
 
 // Checks if the input command is longer than the buffer by setting fd to non-blocking mode and
@@ -510,8 +541,9 @@ int CheckForExtraInput(int fd)
     return 0;
 }
 
-char** getArgsFromTokens(int startInd){
-   int num_tokens = 0;
+char **getArgsFromTokens1(int startInd)
+{
+    int num_tokens = 0;
     while (tokens[startInd + num_tokens] != NULL && strcmp(tokens[startInd + num_tokens], "|") != 0 &&
            strcmp(tokens[startInd + num_tokens], ">") != 0 && strcmp(tokens[startInd + num_tokens], "<") != 0)
     {
@@ -523,32 +555,54 @@ char** getArgsFromTokens(int startInd){
     for (int i = 0; i < num_tokens; i++)
     {
         args[i] = strdup(tokens[startInd + i]);
-        if((strcmp(tokens[0], "ls") != 0) && (strcmp(tokens[0], "-l") != 0)) {
-            if(args[0][0] == '/') {
-            char *temp = malloc(sizeof(char)*100);
-            strcpy(temp, ".");
-            strcat(temp, args[0]);
-            args[0] = strdup(temp);
-            free(temp); 
-        }
-        else if ((strlen(args[0]) > 1) && (args[0][0] != '.'))
+        token_count++;
+    }
+    args[num_tokens] = NULL;
+    numArgs = num_tokens + 1;
+    return args;
+}
+
+char **getArgsFromTokens2(int startInd)
+{
+    int num_tokens = 0;
+    while (tokens[startInd + num_tokens] != NULL && strcmp(tokens[startInd + num_tokens], "|") != 0 &&
+           strcmp(tokens[startInd + num_tokens], ">") != 0 && strcmp(tokens[startInd + num_tokens], "<") != 0)
+    {
+        num_tokens++;
+    }
+
+    char **args = malloc(sizeof(char *) * (num_tokens + 1));
+    int token_count = 0;
+    for (int i = 0; i < num_tokens; i++)
+    {
+        args[i] = strdup(tokens[startInd + i]);
+        if ((strcmp(tokens[0], "ls") != 0) && (strcmp(tokens[0], "-l") != 0))
         {
-           // we need to add ./ to the start
-            char *temp = malloc(sizeof(char)*100);
-            strcpy(temp, "./");
-            strcat(temp, args[0]);
-            args[0] = strdup(temp);
-            free(temp); 
+            if (args[0][0] == '/')
+            {
+                char *temp = malloc(sizeof(char) * 100);
+                strcpy(temp, ".");
+                strcat(temp, args[0]);
+                args[0] = strdup(temp);
+                free(temp);
+            }
+            else if ((strlen(args[0]) > 1) && (args[0][0] != '.'))
+            {
+                // we need to add ./ to the start
+                char *temp = malloc(sizeof(char) * 100);
+                strcpy(temp, "./");
+                strcat(temp, args[0]);
+                args[0] = strdup(temp);
+                free(temp);
+            }
         }
-        }
-        
 
         token_count++;
     }
     args[num_tokens] = NULL;
+    numArgs = 0;
     return args;
 }
-
 
 // this will be used in conjunction with the cd call
 void addToPath(char *command, char *buf)
@@ -561,48 +615,41 @@ void addToPath(char *command, char *buf)
     {
         getcwd(buf, sizeof(buf));
         wstatus = chdir(command);
-        if(wstatus == -1){
-            printf("Error: %s does not exist\n",command);
+        if (wstatus == -1)
+        {
+            printf("Error: %s does not exist\n", command);
         }
     }
     updatePath();
 }
 
-void listStuff() {
-    DIR *dir;
-    struct dirent *entry;
-    dir = opendir(".");
-    if (dir == NULL) {
-        perror("opendir");
-    }
-
-    while ((entry = readdir(dir)) != NULL) {
-        printf("%s\n", entry->d_name);
-    }
-
-    closedir(dir);
-}
-
-void processCommand(char* cmd, int token_ind, int shouldHandleBar)
+void processCommand(char *cmd, int token_ind, int shouldHandleBar)
 {
     int symbol_handling = 0;
     int symbolInd = searchForSymbol(token_ind);
     int BarInd = searchForBar(token_ind);
-    if (BarInd >= 0 && shouldHandleBar == 1){
-        if(HandleBar(BarInd,token_ind) == 1){
+    if (BarInd >= 0 && shouldHandleBar == 1)
+    {
+        if (HandleBar(BarInd, token_ind) == 1)
+        {
             return;
         }
     }
 
-    if(symbolInd != -1){
+    if (symbolInd != -1)
+    {
         symbol_handling = HandleSymbol(symbolInd);
-        if(symbol_handling == -1){wstatus = 1;}
+        if (symbol_handling == -1)
+        {
+            wstatus = 1;
+        }
     }
 
-    if(cmd != NULL && symbol_handling != -1){
-        if(strcmp(cmd, "cd") == 0)
+    if (cmd != NULL && symbol_handling != -1)
+    {
+        if (strcmp(cmd, "cd") == 0)
         {
-            if (tokens[token_ind+1] == NULL)
+            if (tokens[token_ind + 1] == NULL)
             {
                 char *home = getenv("HOME");
                 setHomeDir(home); // sets a global variable that we can use to set home directory
@@ -614,30 +661,16 @@ void processCommand(char* cmd, int token_ind, int shouldHandleBar)
                 addToPath(tokens[token_ind + 1], buffer);
             }
         }
-        else if (strcmp(cmd, "pwd") == 0){
+        else if (strcmp(cmd, "pwd") == 0)
+        {
             wstatus = 0;
             getcwd(buffer, sizeof(buffer));
             printf("the working directory is: %s\n", buffer);
         }
-        else if (strcmp(cmd, "mkdir") == 0) {
-            int result = mkdir(tokens[1], S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-            if(result != 0) {
-                printf("Error making directoy");
-            }
-        }
-        // else if (strcmp(cmd, "echo") == 0)
-        // {
-        //     int ind = 1;
-        //     while(tokens[ind] != NULL) {
-        //         printf("%s ", tokens[ind]);
-        //         ind++;
-        //     }
-        //     printf("\n");
-        // }
-        else{
+        else
+        {
             int id = fork();
-            char **args = getArgsFromTokens(token_ind);
-            
+
             if (id == -1)
             {
                 perror("Error forking process");
@@ -646,57 +679,76 @@ void processCommand(char* cmd, int token_ind, int shouldHandleBar)
             if (id == 0)
             {
 
-                // testting to make sure I know how stat works
-                
-                struct stat st;
+                char **args = getArgsFromTokens1(token_ind);
 
-                int result = stat(cmd, &st);
-
-                if (result != 0 && (strcmp(cmd, "ls") != 0))
+                int att1 = execvp(cmd, args);
+                if (att1 == 0)
                 {
-                    char *new_cmd = malloc(sizeof(char)*100);
-                    new_cmd = search(cmd);
-                    if(new_cmd == NULL) {
-                        perror("Could not execute command");
-                        exit(wstatus);
-                    }
-
-                    args[0] = strdup(new_cmd);
-                    int y = execvp(args[0], args);
-
-                    if (y == -1)
+                    for (int i = 0; i < numArgs; i++)
                     {
-                        perror("Could not execute command");
-                        exit(wstatus);
+                        free(args[i]);
                     }
-                    // execvp(cmd, args);
+                    free(args);
                 }
-
-                if (cmd == NULL)
+                else
                 {
-                    perror("Could not execute command");
-                    exit(wstatus);
+                    // wasn't a base command, which means it must be one of 3 outcomes
+                    //  1. an executable in the directory
+                    //  2. an executable in another directory
+                    //  3. nonexistentS
+
+                    // case 1:
+                    for (int i = 0; i < numArgs; i++)
+                    {
+                        free(args[i]);
+                    }
+                    free(args);
+                    char **args2 = getArgsFromTokens2(token_ind);
+                    struct stat st;
+                    int result = stat(cmd, &st);
+                    if (result == 0)
+                    {
+                        int z = execv(args2[0], args2);
+                        if (z == -1)
+                        {
+                            perror("Could not execute command");
+                            exit(wstatus);
+                        }
+                    }
+                    else
+                    {
+                        // NEEDS SEARCH
+                        char *new_cmd = malloc(sizeof(char) * 100);
+                        new_cmd = search(cmd);
+                        if (new_cmd == NULL)
+                        {
+                            perror("Could not execute command");
+                            exit(wstatus);
+                        }
+
+                        args2[0] = strdup(new_cmd);
+
+                        int y = execvp(args2[0], args);
+                        for (int k = 0; k < numArgs; k++)
+                        {
+                            free(args[k]);
+                        }
+                        free(args);
+
+                        if (y == -1)
+                        {
+                            perror("Could not execute command");
+                            exit(wstatus);
+                        }
+                    }
                 }
-
-                // basically, if this is going to fail, we have to try the check function
-                
-                int x = execvp(args[0], args);
-
-                if (x == -1)
-                {
-                    perror("Could not execute command");
-                    exit(wstatus);
-                }
-
-                // wstatus = execvp(cmd, args);
-                perror("Could not execute command");
-                exit(wstatus);
             }
+            // wait(&wstatus);
             wait(&wstatus);
             wstatus = WEXITSTATUS(wstatus);
         }
     }
-    else if(symbol_handling == -1)
+    else if (symbol_handling == -1)
     {
         perror("error processing symbol command");
         wstatus = 1;
@@ -717,38 +769,40 @@ void processCommand(char* cmd, int token_ind, int shouldHandleBar)
     // if(BarInd != -1 && BarInd != 0){
     //     processCommand(tokens[BarInd+1],BarInd+1,1);
     // }
-
 }
-
-
 
 void CommandLoop(int fd)
 {
-    //ssize_t bytes_read;
-    char* ptr;
+    // ssize_t bytes_read;
+    char *ptr;
     int ExtraInput = 0;
-    if(fd == STDIN_FILENO){
+    if (fd == STDIN_FILENO)
+    {
         ExtraInput = CheckForExtraInput(fd);
     }
-    FILE* fp = fdopen(fd,"r");
+    FILE *fp = fdopen(fd, "r");
     while (1)
     {
-        ptr = fgets(buffer,MAX_CMD_LENGTH,fp);
+        ptr = fgets(buffer, MAX_CMD_LENGTH, fp);
         if (ExtraInput == 1)
         {
             perror("Error with Reading command\n");
             printNextLine();
             continue;
         }
-        else if(strcmp(buffer, "exit\n") == 0 || ptr == NULL){
+        else if (strcmp(buffer, "exit\n") == 0 || ptr == NULL)
+        {
             break;
         }
-        else if(strcmp(buffer,"\n") == 0){
+        else if (strcmp(buffer, "\n") == 0)
+        {
             printNextLine();
             continue;
-        }else{
+        }
+        else
+        {
             parseCommand();
-            processCommand(tokens[0],0,1);
+            processCommand(tokens[0], 0, 1);
             printNextLine();
         }
     }
@@ -758,18 +812,18 @@ void CommandLoop(int fd)
 
 void InteractiveShell()
 {
-    path = malloc(sizeof(char)*MAX_CMD_LENGTH);
+    path = malloc(sizeof(char) * MAX_CMD_LENGTH);
     updatePath();
     global_fd = STDIN_FILENO;
     strcpy(buffer, "Welcome to my Terminal\n");
-    write(STDOUT_FILENO, buffer, getSizeOfCurrCmd(buffer,MAX_CMD_LENGTH));
+    write(STDOUT_FILENO, buffer, getSizeOfCurrCmd(buffer, MAX_CMD_LENGTH));
     printNextLine();
     CommandLoop(STDIN_FILENO);
 }
 
 void BatchShell(int fd)
 {
-    path = malloc(sizeof(char)*MAX_CMD_LENGTH);
+    path = malloc(sizeof(char) * MAX_CMD_LENGTH);
     updatePath();
     global_fd = fd;
     printNextLine();
@@ -790,11 +844,11 @@ int main(int argc, char *argv[])
         }
 
         BatchShell(fd);
-    }else{
+    }
+    else
+    {
         InteractiveShell();
     }
-
-
 
     return EXIT_SUCCESS;
 }
