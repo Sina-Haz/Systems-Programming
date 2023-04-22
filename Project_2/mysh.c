@@ -59,6 +59,7 @@ char *replaceWithHome(char *word)
 void processCommand(char *cmd, int token_ind, int shouldHandleBar);
 void addToPath(char *command, char *buf);
 char **getArgsFromTokens1(int startInd);
+void wildCardParsing(int num_tokens,char** tempArr);
 
 void parseCommand()
 {
@@ -112,11 +113,16 @@ void parseCommand()
         num_tokens++;
     }
 
-    // WILDCARD
-    // Plan: check if tokens[index] contains an asterik.  If it does, we can use
-    // my wildChar function to get the start and the end, and then my other wildcard function
-    // to make a 2D array of everything matching the wildcard
+    //wildCardParsing(num_tokens,tempArr);
 
+}
+
+
+// WILDCARD
+// Plan: check if tokens[index] contains an asterik.  If it does, we can use
+// my wildChar function to get the start and the end, and then my other wildcard function
+// to make a 2D array of everything matching the wildcard
+void wildCardParsing(int num_tokens,char** tempArr){
     int tokInd = 0;
     for (int k = 0; k < num_tokens; k++)
     {
@@ -175,7 +181,7 @@ void parseCommand()
 // this is the first of 2 functions used in dealing with wildcards
 // this function takes in a string and a number 0 or 1.  We input 0 when we want to return everything before the
 // asterik and 1 when we want everything after
-// the string we insert is teh string containing the asterik taht we want to break in two
+// the string we insert is the string containing the asterik that we want to break in two
 char *wildChar(int func, char *str)
 {
     // if func is 0, we want before asterik, if it's 1, we want after asterik;

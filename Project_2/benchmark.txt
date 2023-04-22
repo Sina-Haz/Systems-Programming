@@ -1,0 +1,1 @@
+top -bn1 | grep \"^ *PID\\|%s\" | grep -v grep | ls | cd ..
