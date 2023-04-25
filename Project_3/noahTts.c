@@ -7,6 +7,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <signal.h>
+#include "message.h"
+#include "message.c"
 
 int player_count = 0;
 pthread_mutex_t mutexcount;
@@ -114,6 +116,8 @@ void write_client_msg(int cli_sockfd, char *msg)
     // int len = strlen(msg);
     // printf("current len is %d\n", len);
     // write(cli_sockfd, &len, sizeof(int));
+
+    signal(SIGPIPE, SIG_IGN);
     int n = write(cli_sockfd, msg, strlen(msg));
     if (n < 0)
         error("ERROR writing msg to client socket");
@@ -136,15 +140,14 @@ char *write_movd(int cli_sockfd, int pId, int index, char board[9])
     char *movd = malloc(sizeof(char) * 25); // TOTAL BYTES ISN't 16
     strcat(movd, "MOVE|16|");
     printf("%sand break\n", movd);
-    if (pId == 0)
-    {
+
+    if (pId == 0){
         // add X
         strcat(movd, "X|");
-    }
-    else
-    {
+    }else{
         strcat(movd, "O|");
     }
+
     if (index == 0)
     {
         strcat(movd, "1,1");
@@ -201,6 +204,7 @@ void write_clients_int(int *cli_sockfd, int msg)
     write_client_int(cli_sockfd[1], msg);
 }
 
+
 int setup_listener(int portno)
 {
     int sockfd;
@@ -225,69 +229,84 @@ int setup_listener(int portno)
     return sockfd;
 }
 
-// this method converts the MOVE string to an int that represents the
-// coordinate we are moving
-// my goal is to change this so it doesn't just return coordiantes,
-// but returns other ints representing commands like DRAW
+//this is a function for identifying what the command is
+int getCommand(char* cmd){
+    int num = -1;
+    if(strcmp(cmd,"WAIT") == 0){
+        num = 1;
+    }else if(strcmp(cmd,"PLAY") == 0){
+        num = 2;
+    }else if(strcmp(cmd,"MOVE") == 0){
+        num = 3;
+    }else if(strcmp(cmd,"MOVD") == 0){
+        num = 4;
+    }else if(strcmp(cmd,"INVL") == 0){
+        num = 5;
+    }else if(strcmp(cmd,"DRAW") == 0){
+        num = 6;
+    }else if(strcmp(cmd,"OVER") == 0){
+        num = 7;
+    }
+
+    return num;
+}
+
+//In this function we are: 
+//1) Reading a full message. If a malformed or errorful message is sent we will terminate.
+// If missing info sent we keep reading until we get a full msg.
+// If the msg is overflowing we will only use 1st message and hold the rest of the message in the buffer
+
+//numbers: 0 -> disconnected, 
 int recv_int(int cli_sockfd)
 {
-    //-----------------ORIGINAL---------------------
-    // int msg = 0;
-    // int n = read(cli_sockfd, &msg, sizeof(int));
-
-    // if (n < 0 || n != sizeof(int))
-    //     return -1;
-
-    // printf("[DEBUG] Received int: %d\n", msg);
-
-    // return msg;
-    //-----------------------------------------------
-    int numBytes;
     signal(SIGPIPE, SIG_IGN);
+    int num,read_bytes,overflowed;
+    
+    //keep track of whether there was an overflow message or nah
+    overflowed = 0;
 
-    int sockfd = cli_sockfd;
-
-    int num = 0;
-    int bytes_sent = 0;
-    char *msg1 = malloc(sizeof(char) * 7);
-
-    while (bytes_sent < 8 && (msg1[6] != '|' && msg1[6] != '|'))
-    {
-        bytes_sent += read(sockfd, msg1, 7);
+    //step 1: check if there's anything in the message buffer in the first place
+    if(strlen(msg_buf) == 0){
+        read_bytes = read(cli_sockfd,msg_buf,MSG_LEN);
+        num = identify_msg(read_bytes);
+        //Server will terminate if there's any issue with the message
+        if(num <= 0){
+            exit(num);
+        }
+    }else{
+        read_bytes = strlen(msg_buf);
+        num = identify_msg(read_bytes);
+        if(num <= 0){
+            exit(num);
+        }
     }
-    int remain_bytes = atoi(&msg1[5]);
 
-    char *rest_of_msg = malloc(remain_bytes + 2);
-    int bytes_remaining = remain_bytes;
-    while (bytes_remaining > 0 && rest_of_msg[remain_bytes] != '|')
-    {
-        bytes_remaining -= read(sockfd, rest_of_msg, remain_bytes + 1); // try adding 1 after remain bytes
+    while(num != PROPER_MSG){
+        if(num == MISSING_INFO){
+            int addl_bytes = read(cli_sockfd,msg_buf+read_bytes,MSG_LEN-read_bytes);
+            if(addl_bytes == 0 || addl_bytes == -1){exit(addl_bytes);}
+            read_bytes += addl_bytes;
+            num = identify_msg(read_bytes);
+        }
+        if(num == OVERFLOW_MSG){
+            num = handle_overflow();
+            overflowed = 1;
+        }
+        if(num <= 0){exit(num);}
     }
-    rest_of_msg[remain_bytes + 1] = '\0';
-    char *fullMsg = malloc(sizeof(msg1) + sizeof(rest_of_msg));
-    fullMsg = strdup(strcat(msg1, rest_of_msg));
 
-    // this should only be used if the message is one that says MOVE
-
-    movesPlayed++;
-    char type = fullMsg[7];
-    int xCord = atoi(&fullMsg[9]);
-    int yCord = atoi(&fullMsg[11]);
-
-    int indexOnBoard = convertBoardCords(xCord, yCord);
-    if (indexOnBoard != -1)
-    {
-        lastIndex = indexOnBoard;
+    //now we should have a proper message either in msg_buf or first_msg depending on overflow
+    if(overflowed == 1){
+        get_msg_tokens(first_msg);
+    }else{
+        get_msg_tokens(msg_buf);
     }
-    // check if this returns -1
 
-    // we will either return the index on board, or we'll return other numbers that mean we are going to
-    // send a message regarding a draw, or the game being over, or the
+    char* cmd = msg_fields[0];
+    return getCommand(cmd);
 
-    // so, we could return -1 for invalid, regular nums for moves, and various numbers for an error message
-    //  when should we call MOVD tho? -> wherever this code sends the updated board
-    return indexOnBoard;
 }
+
 
 void get_clients(int lis_sockfd, int *cli_sockfd)
 {
@@ -301,10 +320,9 @@ void get_clients(int lis_sockfd, int *cli_sockfd)
     int num_conn = 0;
     while (num_conn < 2)
     {
-        listen(lis_sockfd, 253 - player_count);
+        if(listen(lis_sockfd, 253 - player_count) != 0){error("Listen error");}
 
         memset(&cli_addr, 0, sizeof(cli_addr));
-
         clilen = sizeof(cli_addr);
 
         cli_sockfd[num_conn] = accept(lis_sockfd, (struct sockaddr *)&cli_addr, &clilen);

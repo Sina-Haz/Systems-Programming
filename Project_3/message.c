@@ -26,7 +26,7 @@ int getNumFields(char* cmd){
     int num = -1;
     if(strcmp(cmd,"WAIT") == 0){
         num = 2;
-    }else if(strcmp(cmd,"NAME") == 0){
+    }else if(strcmp(cmd,"PLAY") == 0){
         num = 3;
     }else if(strcmp(cmd,"MOVE") == 0){
         num = 4;
@@ -39,17 +39,30 @@ int getNumFields(char* cmd){
     }else if(strcmp(cmd,"OVER") == 0){
         num = 4;
     }
+    else if(strcmp(cmd,"BEGN") == 0){
+        num = 4;
+    }
 
     return num;
 }
 
+
+void clear_fields(){
+    for (int i = 0; i < MAX_TOTAL_FIELDS; i++) {
+    free(msg_fields[i]);
+    msg_fields[i] = NULL;
+    }
+}
+
 //gets all fields into their own tokens
-int get_msg_tokens(){
-    if(msg_buf[0] == '\0'){
+int get_msg_tokens(char* msg_buffer){
+    if(msg_buffer[0] == '\0'){
         perror("nothing in message buffer.");
         return -1;
     }
-    char* msg_copy = strdup(msg_buf);
+    //clear the fields
+
+    char* msg_copy = strdup(msg_buffer);
     char* token = strtok(msg_copy,"|");
     int i = 0;
     do{
@@ -90,10 +103,10 @@ int identify_msg(int read_bytes){
         perror("read error!");
         return -1;
     }else if(read_bytes == 0){
-        printf("Connection has been closed!");
+        printf("Connection has been closed!\n");
         return 0;
     }
-    int num = get_msg_tokens();
+    int num = get_msg_tokens(msg_buf);
     if(num == -1){
         perror("Message was NULL!");
         return -2;
@@ -121,12 +134,16 @@ int identify_msg(int read_bytes){
     if(strlen(substr) < num_bytes){
         return MISSING_INFO;
     }
-    else if(strlen(substr) > num_bytes){
-        printf("wrong length\n");
-        return MALFORMED_MSG;
-    }
+    // else if(strlen(substr) > num_bytes){
+    //     printf("wrong length\n");
+    //     return MALFORMED_MSG;
+    // }
 
     rt_num_fields = getNumFields(cmd);
+    if(rt_num_fields == -1){
+        perror("Not a valid command!");
+        return MALFORMED_MSG;
+    }
     if(rt_num_fields > curr_fields){
         return MISSING_INFO;
     }else if(rt_num_fields < curr_fields){
@@ -134,6 +151,7 @@ int identify_msg(int read_bytes){
     }
     return PROPER_MSG;
 }
+
 
 int handle_overflow(){
     int num_bytes = atoi(msg_fields[1]);
@@ -166,20 +184,25 @@ int handle_overflow(){
 
 
 //this file will have functions used to handle recieving and sending messages from server
-int main(int argc, char* argv[]){
+/*int main(int argc, char* argv[]){
 
     strcpy(msg_buf,"WAIT|0|");
     int read_bytes = strlen(msg_buf);
     printf("%d\n",identify_msg(read_bytes));
 
     bzero(msg_buf,MSG_LEN);
-    strcpy(msg_buf,"NAME|10|Joe Smith|");
+    strcpy(msg_buf,"PLAY|10|Joe Smith|");
     printf("%d\n",identify_msg(read_bytes));
 
     bzero(msg_buf,MSG_LEN);
-    strcpy(msg_buf,"NAME|10|Joe Smith|Power Ranger|");
+    strcpy(msg_buf,"PLAY|10|Joe Smith|MOVE|");
+    printf("%d\n",identify_msg(read_bytes));
+    handle_overflow();
+
+    bzero(msg_buf,MSG_LEN);
+    strcpy(msg_buf,"PLAY|10|Joe Smith|MOVE|6|X|2,2|");
     printf("%d\n",identify_msg(read_bytes));
     handle_overflow();
 
     return EXIT_SUCCESS;
-}
+}*/

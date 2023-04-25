@@ -1,0 +1,58 @@
+    /*
+    //-----------------ORIGINAL---------------------
+    // int msg = 0;
+    // int n = read(cli_sockfd, &msg, sizeof(int));
+
+    // if (n < 0 || n != sizeof(int))
+    //     return -1;
+
+    // printf("[DEBUG] Received int: %d\n", msg);
+
+    // return msg;
+    //-----------------------------------------------
+    int numBytes;
+    signal(SIGPIPE, SIG_IGN);
+
+    int sockfd = cli_sockfd;
+
+    int num = 0;
+    int bytes_sent = 0;
+    char *msg1 = malloc(sizeof(char) * 7);
+
+    while (bytes_sent < 8 && (msg1[6] != '|')) //WAIT|1000|
+    {
+        bytes_sent += read(sockfd, msg1, 7);
+    }
+    int remain_bytes = atoi(&msg1[5]);
+
+    char *rest_of_msg = malloc(remain_bytes + 2);
+    int bytes_remaining = remain_bytes;
+    while (bytes_remaining > 0 && rest_of_msg[remain_bytes] != '|')
+    {
+        bytes_remaining -= read(sockfd, rest_of_msg, remain_bytes + 1); // try adding 1 after remain bytes
+    }
+    rest_of_msg[remain_bytes + 1] = '\0';
+    char *fullMsg = malloc(sizeof(msg1) + sizeof(rest_of_msg));
+    fullMsg = strdup(strcat(msg1, rest_of_msg));
+
+    // this should only be used if the message is one that says MOVE
+
+    movesPlayed++;
+    char type = fullMsg[7];
+    int xCord = atoi(&fullMsg[9]);
+    int yCord = atoi(&fullMsg[11]);
+
+    int indexOnBoard = convertBoardCords(xCord, yCord);
+    if (indexOnBoard != -1)
+    {
+        lastIndex = indexOnBoard;
+    }
+    // check if this returns -1
+
+    // we will either return the index on board, or we'll return other numbers that mean we are going to
+    // send a message regarding a draw, or the game being over, or the
+
+    // so, we could return -1 for invalid, regular nums for moves, and various numbers for an error message
+    //  when should we call MOVD tho? -> wherever this code sends the updated board
+    return indexOnBoard;
+    */
