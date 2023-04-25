@@ -38,11 +38,13 @@ int getNumFields(char* cmd){
         num = 3;
     }else if(strcmp(cmd,"OVER") == 0){
         num = 4;
-    }
-    else if(strcmp(cmd,"BEGN") == 0){
+    }else if(strcmp(cmd,"BEGN") == 0){
         num = 4;
+    }else if(strcmp(cmd,"RSGN") == 0){
+        num = 2;
     }
 
+    if(num == -1){printf("invalid command was %s",cmd);}
     return num;
 }
 
@@ -94,11 +96,27 @@ char* extract_substr(){
     return ptr;
 }
 
+//helper method to remove any extraneous newline characters in the message that would interfere with reading it
+void remove_newlines() {
+    char* src = msg_buf;
+    char* dst = msg_buf;
+
+    while (*src != '\0') {
+        if (*src != '\n') {
+            *dst = *src;
+            dst++;
+        }
+        src++;
+    }
+    *dst = '\0';
+}
+
 
 //figure out if whatever in msg_buf is a complete message
 int identify_msg(int read_bytes){
     //assume we call read and we know how many bytes it got.
 
+    remove_newlines();
     if(read_bytes < 0){
         perror("read error!");
         return -1;
@@ -106,7 +124,9 @@ int identify_msg(int read_bytes){
         printf("Connection has been closed!\n");
         return 0;
     }
+
     int num = get_msg_tokens(msg_buf);
+
     if(num == -1){
         perror("Message was NULL!");
         return -2;

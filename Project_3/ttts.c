@@ -74,6 +74,16 @@ int getPlayerCommand(char* cmd){
     return num;
 }
 
+//returns 1 if only has newline, otherwise returns a 0
+int is_all_newlines(char* whatever){
+    for (int i = 0; i < strlen(whatever); i++) {
+        if (whatever[i] != '\n') {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 //In this function we are: 
 //1) Reading a full message. If a malformed or errorful message is sent we will terminate.
 // If missing info sent we keep reading until we get a full msg.
@@ -84,12 +94,16 @@ int recv_msg(int cli_sockfd)
     signal(SIGPIPE, SIG_IGN);
     int num,read_bytes,overflowed;
     
-    //keep track of whether there was an overflow message or nah
+    //keep track of whether there was an overflow message
     overflowed = 0;
 
     //step 1: check if there's anything in the message buffer in the first place
     if(strlen(msg_buf) == 0){
         read_bytes = read(cli_sockfd,msg_buf,MSG_LEN);
+        if(is_all_newlines(msg_buf)){
+            bzero(msg_buf,MSG_LEN);
+            read_bytes = read(cli_sockfd,msg_buf,MSG_LEN);
+        }
         num = identify_msg(read_bytes);
         //Server will terminate if there's any issue with the message
         if(num <= 0){
@@ -105,7 +119,7 @@ int recv_msg(int cli_sockfd)
 
     while(num != PROPER_MSG){
         if(num == MISSING_INFO){
-            int addl_bytes = read(cli_sockfd,msg_buf+read_bytes,MSG_LEN-read_bytes);
+            int addl_bytes = read(cli_sockfd,&msg_buf[read_bytes],MSG_LEN-read_bytes);
             if(addl_bytes == 0 || addl_bytes == -1){exit(addl_bytes);}
             read_bytes += addl_bytes;
             num = identify_msg(read_bytes);
@@ -122,15 +136,26 @@ int recv_msg(int cli_sockfd)
     if(overflowed == 1){
         get_msg_tokens(first_msg);
         curr_msg = strdup(first_msg);
+        free(first_msg);
     }else{
         get_msg_tokens(msg_buf);
         curr_msg = strdup(msg_buf);
+        bzero(msg_buf,MSG_LEN);
     }
 
     char* cmd = msg_fields[0];
 
 
     return getPlayerCommand(cmd);
+}
+
+void draw_board(char board[9])
+{
+    for (int i = 0; i < 8; i++)
+    {
+        printf("%c", board[i]);
+    }
+    printf("\n");
 }
 
 //This function setups listeners for the amount of players and accepts a batch of two new players 
@@ -166,6 +191,72 @@ void get_players(int socket, int* player_fd){
     }
 }
 
+// this checks if we won
+int check_board(char board[9])
+{
+    // return 1 if won, 0 if not
+
+    if ((board[0] == 'X' && board[1] == 'X' && board[2] == 'X') || (board[0] == 'O' && board[1] == 'O' && board[2] == 'O'))
+    {
+        return 1;
+    }
+    if ((board[3] == 'X' && board[4] == 'X' && board[5] == 'X') || (board[3] == 'O' && board[4] == 'O' && board[5] == 'O'))
+    {
+        return 1;
+    }
+    if ((board[6] == 'X' && board[7] == 'X' && board[8] == 'X') || (board[6] == 'O' && board[7] == 'O' && board[8] == 'O'))
+    {
+        return 1;
+    }
+    if ((board[0] == 'X' && board[3] == 'X' && board[6] == 'X') || (board[0] == 'O' && board[3] == 'O' && board[6] == 'O'))
+    {
+        return 1;
+    }
+    if ((board[1] == 'X' && board[4] == 'X' && board[7] == 'X') || (board[1] == 'O' && board[4] == 'O' && board[7] == 'O'))
+    {
+        return 1;
+    }
+    if ((board[2] == 'X' && board[5] == 'X' && board[8] == 'X') || (board[2] == 'O' && board[5] == 'O' && board[8] == 'O'))
+    {
+        return 1;
+    }
+    if ((board[0] == 'X' && board[4] == 'X' && board[8] == 'X') || (board[0] == 'O' && board[4] == 'O' && board[8] == 'O'))
+    {
+        return 1;
+    }
+    if ((board[6] == 'X' && board[4] == 'X' && board[2] == 'X') || (board[6] == 'O' && board[4] == 'O' && board[2] == 'O'))
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+//convert "num, num" to a int product
+int parse_move(char* input_string)
+{
+    char* copy_string = strdup(input_string); // make a copy of the input string
+    char* token;
+    int values[2];
+    int i = 0;
+
+    token = strtok(copy_string, ",");
+    while (token != NULL && i < 2) {
+        values[i++] = atoi(token);
+        token = strtok(NULL, ",");
+    }
+
+    free(copy_string); // free the copy of the input string
+
+    if (i != 2) {
+        // input string does not contain two comma-separated integers
+        return -1;
+    }
+    if(values[0] < 0 || values[1] < 0 || values[0] > 3 || values[0] > 3){return -1;}
+
+    return values[0] * values[1]; // return the product of the two integers
+}
+
 //helper method to write a BEGN msg to the player. id = 0 -> player uses X otherwise use O.
 void write_begn_msg(int playerfd,char* player_name,int id){
 
@@ -176,7 +267,6 @@ void write_begn_msg(int playerfd,char* player_name,int id){
 
     char num_str[3];
     sprintf(num_str,"%lu",strlen(player_name)+3);
-
     strcat(msg,num_str);
     strcat(msg,"|");
 
@@ -184,6 +274,79 @@ void write_begn_msg(int playerfd,char* player_name,int id){
     else if(id == 1){strcat(msg,"O|");}
 
     strcat(msg,player_name);
+    strcat(msg,"|");
+
+    write_msg_to_player(playerfd,msg);
+    free(msg);
+}
+
+//helper method for sending OVER message. outcome is W, L, or D
+void write_over_msg(int playerfd,char* outcome, char* reason){
+    char* msg = malloc(sizeof(char)*MSG_LEN);
+    bzero(msg,MSG_LEN);
+
+    strcat(msg,"OVER|");
+    char num_str[3];
+    sprintf(num_str,"%lu",strlen(reason)+3);
+    strcat(msg,num_str);
+    strcat(msg,"|");
+    strcat(msg,outcome);
+    strcat(msg,"|");
+    strcat(msg,reason);
+    strcat(msg,"|");
+
+    write_msg_to_player(playerfd,msg);
+    free(msg);
+}
+
+//lets say we get a draw request. first we send a draw to opp. If they send 
+//if outcome is 0 that means draw was rejected. if 1 it means it was accepted.
+int handle_draw(int this_fd, int opp_fd){
+    int outcome = 0;
+    write_msg_to_player(opp_fd,"DRAW|2|S|");
+
+    int cmd_int = recv_msg(opp_fd);
+    if(cmd_int != 4)
+        error("Player didn't address draw suggestion. Game terminated.");
+    
+    if(strcmp(curr_msg,"DRAW|2|A|") == 0){
+        write_over_msg(this_fd,"D","Opponent accepted draw.");
+        write_over_msg(opp_fd,"D","You accepted the draw.");
+        outcome = 1;
+    }else if(strcmp(curr_msg,"DRAW|2|R|") == 0){
+        write_msg_to_player(this_fd,"DRAW|2|R|");
+    }else
+        error("Incorrectly formatted draw message. Game terminated.");
+    
+    return outcome;
+}
+
+void write_movd(int* player_fd,int id,char* board){
+    char* msg = malloc(sizeof(char)*MSG_LEN);
+    bzero(msg,MSG_LEN);
+
+    strcat(msg,"MOVD|16|");
+    if(id == 0){strcat(msg,"X");}
+    else if(id == 1){strcat(msg,"O");}
+    strcat(msg,"|");
+    strcat(msg,board);
+    strcat(msg,"|");
+
+    write_msg_to_player(player_fd[0],msg);
+    write_msg_to_player(player_fd[1],msg);
+    free(msg);
+}
+
+void write_invl(int playerfd,char* reason){
+    char* msg = malloc(sizeof(char)*MSG_LEN);
+    bzero(msg,MSG_LEN);
+
+    strcat(msg,"INVL|");
+    char num_str[3];
+    sprintf(num_str,"%lu",strlen(reason)+3);
+    strcat(msg,num_str);
+    strcat(msg,"|");
+    strcat(msg,reason);
     strcat(msg,"|");
 
     write_msg_to_player(playerfd,msg);
@@ -198,6 +361,7 @@ void *run_game(void* thread_data){
 
     printf("Starting Game!\n");
 
+    bzero(msg_buf,MSG_LEN);
     //now we wait for first player to send PLAY message
     if(recv_msg(player_fd[0]) != 1)
         error("Player 1 didn't start game properly.");
@@ -224,12 +388,77 @@ void *run_game(void* thread_data){
     while(!game_over){
 
         int valid = 0;
-        int move = 0;
         while(!valid){
+            int cmd_int = recv_msg(player_fd[player_turn]);
+            if(cmd_int < 2)
+                error("player didn't send a valid message. game terminated.");
             
+            //handle a RSGN command
+            else if(cmd_int == 3){
+                write_over_msg(player_fd[player_turn],"L","You resigned.");
+                write_over_msg(player_fd[prev_player_turn],"W","Opponent resigned.");
+                valid = 1;
+                game_over = 1;
+            }
+
+            //handle DRAW command
+            else if(cmd_int == 4){
+                game_over = handle_draw(player_fd[player_turn],player_fd[prev_player_turn]);
+                valid = 1;
+                turn_count--;
+            }
+
+            //handle MOVE command
+            else if(cmd_int == 2){
+                int pos = parse_move(msg_fields[3]);
+                if(pos == -1)
+                    error("MOVE was improperly formatted.");
+                
+                if(board[pos] == '.'){
+                    valid = 1;
+                    if(player_turn == 0){board[pos] = 'X';}else{board[pos] = 'O';}
+                    write_movd(player_fd,player_turn,board);
+                }else{
+                    write_invl(player_fd[player_turn],"That space is occupied.");
+                }
+            }
         }
+        draw_board(board);
+
+        game_over = check_board(board);
+
+        if (game_over == 1)
+        {
+            write_over_msg(player_fd[player_turn],"W","You got 3 in a row.");
+            write_over_msg(player_fd[prev_player_turn],"L","Opponent got 3 in a row.");
+            printf("Player %d won.\n", player_turn);
+        }
+        else if (turn_count == 8)
+        {
+            printf("Draw.\n");
+            write_over_msg(player_fd[player_turn],"D","Board is full");
+            write_over_msg(player_fd[prev_player_turn],"D","Board is full");
+            game_over = 1;
+        }
+
+        prev_player_turn = player_turn;
+        player_turn = (player_turn + 1) % 2;
+        turn_count++;
     }
 
+    printf("Game over.\n");
+
+    close(player_fd[0]);
+    close(player_fd[1]);
+
+    pthread_mutex_lock(&mutexcount);
+    player_count--;
+    printf("Number of players is now %d.", player_count);
+    player_count--;
+    printf("Number of players is now %d.", player_count);
+    pthread_mutex_unlock(&mutexcount);
+
+    free(player_fd);
 
     pthread_exit(NULL);
 }
@@ -269,6 +498,10 @@ int main(int argc, char* argv[]){
             }
         }
     }
+
+    close(listen_sockfd);
+    pthread_mutex_destroy(&mutexcount);
+    pthread_exit(NULL);
     
 }
 

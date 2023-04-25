@@ -61,7 +61,7 @@ void recv_msg(int sockfd, char *msg)
     printf("[DEBUG] Received message: %s\n", msg);
 
     // basically, server receives a draw request and passes it right on
-    if (msg == "DRAW|S|")
+    if (strcmp(msg,"DRAW|3|S"))
     {
         int x = 3;
         while (x != 0 && x != 1)
@@ -70,18 +70,18 @@ void recv_msg(int sockfd, char *msg)
         }
         if (x == 1)
         {
-            char response[8] = "DRAW|A|";
+            char response[10] = "DRAW|3|A|";
             int bytes_sent = 0;
-            while (bytes_sent < 8)
+            while (bytes_sent < 10)
             {
                 bytes_sent += write(sockfd, response, 8);
             }
         }
         else if (x == 0)
         {
-            char response[8] = "DRAW|R|";
+            char response[10] = "DRAW|3|R|";
             int bytes_sent = 0;
-            while (bytes_sent < 8)
+            while (bytes_sent < 10)
             {
                 bytes_sent += write(sockfd, response, 8);
             }
