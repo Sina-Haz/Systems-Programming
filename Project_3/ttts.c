@@ -100,7 +100,7 @@ int recv_msg(int cli_sockfd)
     //step 1: check if there's anything in the message buffer in the first place
     if(strlen(msg_buf) == 0){
         read_bytes = read(cli_sockfd,msg_buf,MSG_LEN);
-        if(is_all_newlines(msg_buf)){
+        while(is_all_newlines(msg_buf)){
             bzero(msg_buf,MSG_LEN);
             read_bytes = read(cli_sockfd,msg_buf,MSG_LEN);
         }
@@ -329,7 +329,10 @@ void write_movd(int* player_fd,int id,char* board){
     if(id == 0){strcat(msg,"X");}
     else if(id == 1){strcat(msg,"O");}
     strcat(msg,"|");
-    strcat(msg,board);
+    int ind = strlen(msg);
+    for(int i = ind; i < ind+BOARD_SIZE;i++){
+        msg[i] = board[i - ind];
+    }
     strcat(msg,"|");
 
     write_msg_to_player(player_fd[0],msg);
@@ -367,6 +370,7 @@ void *run_game(void* thread_data){
         error("Player 1 didn't start game properly.");
     
     player_names[0] = strdup(msg_fields[2]);
+    printf("%s has joined!\n",player_names[0]);
 
     write_msg_to_player(player_fd[0],"WAIT|0|");
 
@@ -374,6 +378,7 @@ void *run_game(void* thread_data){
         error("Player 2 didn't start game properly");
 
     player_names[1] = strdup(msg_fields[2]);
+    printf("%s has joined!\n",player_names[1]);
 
     write_msg_to_player(player_fd[1],"WAIT|0|");
 
@@ -417,7 +422,12 @@ void *run_game(void* thread_data){
                 if(board[pos] == '.'){
                     valid = 1;
                     if(player_turn == 0){board[pos] = 'X';}else{board[pos] = 'O';}
-                    write_movd(player_fd,player_turn,board);
+                    char* board_copy = malloc(sizeof(char)*BOARD_SIZE);
+                    for(int i = 0;i < BOARD_SIZE;i++){
+                        board_copy[i] = board[i];
+                    }
+                    write_movd(player_fd,player_turn,board_copy);
+                    free(board_copy);
                 }else{
                     write_invl(player_fd[player_turn],"That space is occupied.");
                 }

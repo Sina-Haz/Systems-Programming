@@ -43,11 +43,11 @@ int main(int argc, char *argv[]) {
     while (1) {
         memset(buffer, 0, BUFFER_SIZE);
         printf("Enter command: ");
-        fgets(buffer, BUFFER_SIZE, stdin);
+        read(STDIN_FILENO, buffer, BUFFER_SIZE);
         send(sockfd, buffer, strlen(buffer), 0);
 
         memset(buffer, 0, BUFFER_SIZE);
-        int recv_size = recv(sockfd, buffer, BUFFER_SIZE, 0);
+        int recv_size = read(sockfd, buffer, BUFFER_SIZE);
         if (recv_size <= 0) {
             perror("recv");
             break;

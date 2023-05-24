@@ -113,7 +113,7 @@ void parseCommand()
         num_tokens++;
     }
 
-    //wildCardParsing(num_tokens,tempArr);
+    wildCardParsing(num_tokens,tempArr);
 
 }
 
